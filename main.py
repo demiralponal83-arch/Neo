@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, Markup
+from flask import Flask, render_template, request, redirect, url_for
 # Gemini API için gerekli kütüphane
 from google import genai
 from google.genai.errors import APIError
