@@ -325,10 +325,16 @@ class NicoZekasi:
             return "Ben Nico! Senin kişisel asistanınım. Sana yardımcı olmak için buradayım."
 
         # Bilinmeyen
-        return "Bunu tam anlayamadım ama öğrenmeye çalışıyorum. Bana biraz daha anlatır mısın?"
+        return "BUNU_ANLAMADIM"
 
     def _ogren(self, mesaj, intent, cevap):
-        """Yeni veriyi öğren ve kaydet"""
+        """Yeni veriyi öğren ve kaydet - ama anlamadım cevaplarını kaydetme"""
+        # "Anlayamadım" cevaplarını kaydetme - bu öğrenme değil
+        if cevap == "BUNU_ANLAMADIM":
+            return
+        # Boş veya tekrar cevapları kaydetme
+        if not cevap or len(cevap) < 5:
+            return
         egim_verisi_ekle(self.kullanici_id, mesaj, intent, cevap)
         self.egitim_verisi.append({
             'mesaj': mesaj,
@@ -441,6 +447,19 @@ def api_cevap():
     # AI motor ile cevap uret
     ai = get_ai_motor(kullanici_id)
     cevap = ai.cevap_uret(mesaj)
+
+    # Anlamadim cevabini degistir - kullaniciya daha akilli davran
+    if cevap == "BUNU_ANLAMADIM":
+        # Context'e bak - kullanici daha once anlatmaya calisti mi?
+        if len(ai.context) >= 2:
+            onceki = ai.context[-2].lower()
+            if any(x in onceki for x in ["anlamad", "anlat", "demek istedi", "kastediyor"]):
+                # Kullanici aciklama yapmis - ama hala anlamadik
+                cevap = f"Hmm, anladım sanmıştım ama galiba yanlış anladım. {get_kullanici_adi(kullanici_id) or 'Dostum'}, bana farklı bir şekilde anlatır mısın? Belki daha kısa ve basit şekilde?"
+            else:
+                cevap = f"Bunu anlamadım, kusura bakma. {get_kullanici_adi(kullanici_id) or 'Dostum'}, bana biraz daha açık anlatır mısın?"
+        else:
+            cevap = "Bunu anlamadım, kusura bakma. Biraz daha açık anlatır mısın?"
 
     # Sohbet kaydet
     sohbet_id = son_sohbet_id(kullanici_id)
