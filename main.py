@@ -16,15 +16,48 @@ def mesaj_kaydet(kullanici_mesaji, nico_cevabi):
 
 def nico_cevap_ver(mesaj):
     m = mesaj.lower()
+    
+    # Hafıza kontrol - geçmiş mesajları al
+    conn = sqlite3.connect('nico_hafiza.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT kullanici_mesaji, nico_cevabi FROM sohbetler ORDER BY id DESC')
+    gecmis = cursor.fetchall()
+    conn.close()
+
+    # Hafıza: Kullanıcı daha önce adını söylemiş mi?
+    kullanici_adi = None
+    for k_mesaj, n_cevap in gecmis:
+        if "adım" in k_mesaj.lower() and "demiralp" in k_mesaj.lower():
+            kullanici_adi = "Demiralp"
+            break
+
+    # 0. HAFIZA SORULARI
+    if "adım ne" in m or "ben kimim" in m:
+        if kullanici_adi:
+            cevap = f"Sen {kullanici_adi}'sin! Daha önce söylemiştin, hatırlıyorum."
+        else:
+            cevap = "Henüz adını söylemedin, sen kimsin?"
+
+    elif "beni hatırlıyor musun" in m:
+        if kullanici_adi:
+            cevap = f"Tabii! Sen {kullanici_adi}'sin. Hafızamda kayıtlısın."
+        else:
+            cevap = "Henüz kendini tanıtmamıştın. Bana adını söyleyebilirsin!"
+
+    elif "adım" in m and "demiralp" in m:
+        cevap = "Memnun oldum Demiralp, artık ismini not ettim! Bir daha sormana gerek kalmayacak."
 
     # 1. KİŞİLİK VE KİMLİK
-    if any(x in m for x in ["sen kimsin", "kimsin", "adın ne"]):
+    elif any(x in m for x in ["sen kimsin", "kimsin", "adın ne"]):
         cevap = ("Ben Nico! Demiralp'in tasarladığı, dijital dünyada yaşayan bir asistanım. "
                  "Kodlardan oluşuyorum ama fena bir muhabbet arkadaşı değilimdir.")
 
     # 2. SELAMLAMA VE HAL HATIR
     elif any(x in m for x in ["merhaba", "selam", "günaydın", "iyi akşamlar"]):
-        cevap = f"Selamlar Demiralp! Bugünün tarihi {datetime.date.today()}. Senin için ne yapabilirim?"
+        if kullanici_adi:
+            cevap = f"Selamlar {kullanici_adi}! Bugünün tarihi {datetime.date.today()}. Nasıl yardımcı olabilirim?"
+        else:
+            cevap = f"Selamlar! Bugünün tarihi {datetime.date.today()}. Nasıl yardımcı olabilirim?"
 
     elif "nasılsın" in m:
         cevap = ("Sistemlerim mükemmel çalışıyor. Hafızamda tonla bilgi var ve seninle sohbet etmeye hazırım. "
@@ -67,6 +100,15 @@ def api_cevap():
     mesaj = data.get('mesaj', '')
     cevap = nico_cevap_ver(mesaj)
     return jsonify({'cevap': cevap})
+
+@app.route('/api/sohbetler', methods=['GET'])
+def api_sohbetler():
+    conn = sqlite3.connect('nico_hafiza.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, kullanici_mesaji, nico_cevabi FROM sohbetler ORDER BY id DESC')
+    sohbetler = cursor.fetchall()
+    conn.close()
+    return jsonify([{'id': s[0], 'kullanici_mesaji': s[1], 'nico_cevabi': s[2]} for s in sohbetler])
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

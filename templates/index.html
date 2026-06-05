@@ -8,37 +8,39 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: white;
             min-height: 100vh;
             display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
+            gap: 20px;
         }
+        /* Sol taraf - Sohbet */
         .chat-container {
-            width: 100%;
+            flex: 1;
             max-width: 600px;
             background: white;
+            border: 1px solid #e0e0e0;
             border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            height: 80vh;
+            height: 90vh;
         }
         .chat-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: white;
+            color: black;
             padding: 20px;
             text-align: center;
+            border-bottom: 1px solid #e0e0e0;
         }
         .chat-header h1 { font-size: 1.5em; margin-bottom: 5px; }
-        .chat-header p { font-size: 0.9em; opacity: 0.9; }
+        .chat-header p { font-size: 0.9em; opacity: 0.7; }
         .chat-messages {
             flex: 1;
             overflow-y: auto;
             padding: 20px;
-            background: #f8f9fa;
+            background: #fafafa;
         }
         .message {
             margin-bottom: 15px;
@@ -48,7 +50,7 @@
             line-height: 1.4;
         }
         .message.user {
-            background: #667eea;
+            background: black;
             color: white;
             margin-left: auto;
             border-bottom-right-radius: 4px;
@@ -73,18 +75,74 @@
             font-size: 1em;
             outline: none;
         }
-        .chat-input input:focus { border-color: #667eea; }
+        .chat-input input:focus { border-color: black; }
         .chat-input button {
             margin-left: 10px;
             padding: 12px 20px;
-            background: #667eea;
+            background: black;
             color: white;
             border: none;
             border-radius: 25px;
             cursor: pointer;
             font-size: 1em;
         }
-        .chat-input button:hover { background: #5a6fd6; }
+        .chat-input button:hover { background: #333; }
+        /* Sağ taraf - Sohbet geçmişi */
+        .history-container {
+            width: 350px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+        .history-header {
+            background: white;
+            color: black;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .history-header h2 { font-size: 1.2em; }
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #fafafa;
+        }
+        .history-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+        .history-item:hover {
+            border-color: black;
+        }
+        .history-item .user-msg {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: black;
+        }
+        .history-item .nico-msg {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .history-empty {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .history-container { width: 100%; height: 40vh; }
+            .chat-container { max-width: 100%; height: 50vh; }
+        }
     </style>
 </head>
 <body>
@@ -104,9 +162,21 @@
         </div>
     </div>
 
+    <div class="history-container">
+        <div class="history-header">
+            <h2>Sohbet Geçmişi</h2>
+        </div>
+        <div class="history-list" id="historyList">
+            <div class="history-empty">
+                Henüz sohbet geçmişi yok.
+            </div>
+        </div>
+    </div>
+
     <script>
         const messagesDiv = document.getElementById('messages');
         const userInput = document.getElementById('userInput');
+        const historyList = document.getElementById('historyList');
 
         function addMessage(text, role) {
             const div = document.createElement('div');
@@ -114,6 +184,31 @@
             div.textContent = text;
             messagesDiv.appendChild(div);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/sohbetler');
+                const sohbetler = await response.json();
+                
+                if (sohbetler.length === 0) {
+                    historyList.innerHTML = '<div class="history-empty">Henüz sohbet geçmişi yok.</div>';
+                    return;
+                }
+
+                historyList.innerHTML = '';
+                sohbetler.forEach(s => {
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    item.innerHTML = `
+                        <div class="user-msg">Sen: ${s.kullanici_mesaji}</div>
+                        <div class="nico-msg">Nico: ${s.nico_cevabi}</div>
+                    `;
+                    historyList.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Geçmiş yüklenirken hata:', error);
+            }
         }
 
         async function sendMessage() {
@@ -131,6 +226,8 @@
                 });
                 const data = await response.json();
                 addMessage(data.cevap, 'assistant');
+                // Geçmişi yenile
+                loadHistory();
             } catch (error) {
                 addMessage('Bir hata oluştu, tekrar dene.', 'assistant');
             }
@@ -139,6 +236,9 @@
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
+
+        // Sayfa yüklenince geçmişi yükle
+        loadHistory();
     </script>
 </body>
 </html>
