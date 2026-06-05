@@ -1,28 +1,33 @@
-import streamlit as st
-from main import nico_cevap_ver
+# -*- coding: utf-8 -*-
+import os
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
+import logging
 
-st.title("Nico - Kişisel Asistan")
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
-# Sohbet geçmişini gösterme (Hafızadan çekmek için)
-if "mesajlar" not in st.session_state:
-    st.session_state.mesajlar = []
+class Base(DeclarativeBase):
+    pass
 
-# Mesajları ekrana yazdır
-for mesaj in st.session_state.mesajlar:
-    with st.chat_message(mesaj["rol"]):
-        st.markdown(mesaj["icerik"])
+# Initialize Flask app
+app = Flask(__name__)
+app.secret_key = os.environ.get("SESSION_SECRET", "nico-secret-key")
 
-# Kullanıcıdan mesaj al
-if prompt := st.chat_input("Nico'ya bir şeyler yaz..."):
-    # Kullanıcının mesajını ekrana ekle
-    st.session_state.mesajlar.append({"rol": "user", "icerik": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+# Database configuration
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    'pool_pre_ping': True,
+    "pool_recycle": 300,
+}
 
-    # Nico'nun cevabını al
-    cevap = nico_cevap_ver(prompt)
+# Initialize SQLAlchemy
+db = SQLAlchemy(app, model_class=Base)
 
-    # Nico'nun cevabını ekrana ekle
-    st.session_state.mesajlar.append({"rol": "assistant", "icerik": cevap})
-    with st.chat_message("assistant"):
-        st.markdown(cevap)
+# Create tables
+with app.app_context():
+    import models  # noqa: F401
+    db.create_all()
+    logging.info("Database tables created")

@@ -303,15 +303,11 @@
             try {
                 const response = await fetch('/api/yeni-sohbet', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-User-ID': getUserId()
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ konu: 'Yeni Sohbet' })
                 });
                 const data = await response.json();
-                
-                messagesDiv.innerHTML = '<div class="message assistant">Yeni sohbet basladi! Size nasil yardimci olabilirim?</div>';
+                messagesDiv.innerHTML = '';
                 loadHistory();
             } catch (error) {
                 console.error('Yeni sohbet olusturulurken hata:', error);

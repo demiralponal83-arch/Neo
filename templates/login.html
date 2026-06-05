@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nico - Giris</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-container {
+            text-align: center;
+            padding: 40px;
+        }
+        .logo {
+            font-size: 60px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            animation: logoIn 1s ease-out;
+        }
+        @keyframes logoIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        .login-btn {
+            display: inline-block;
+            padding: 14px 32px;
+            background: black;
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 10px;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .providers {
+            margin-top: 20px;
+            color: #999;
+            font-size: 0.85em;
+        }
+        .providers span {
+            display: inline-block;
+            margin: 0 5px;
+        }
+        .footer {
+            margin-top: 40px;
+            color: #bbb;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">NICO</div>
+        <div class="subtitle">Kisisel AI Asistaniniz</div>
+        <a href="/auth/login" class="login-btn">Giris Yap</a>
+        <div class="providers">
+            <span>Google</span>
+            <span>&bull;</span>
+            <span>Apple</span>
+            <span>&bull;</span>
+            <span>Email</span>
+            <span>&bull;</span>
+            <span>GitHub</span>
+        </div>
+        <div class="footer">
+            Replit Auth ile guvenli giris
+        </div>
+    </div>
+</body>
+</html>
