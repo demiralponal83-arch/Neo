@@ -2,13 +2,26 @@
 import sqlite3
 import datetime
 import random
-import re
+import json
+import os
 from flask import Flask, render_template, request, jsonify
+
+# =============================================================================
+# YAPAY ZEKA KUTUPHANELERI
+# =============================================================================
+try:
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import Pipeline
+    import numpy as np
+    AI_MODE = True
+except ImportError:
+    AI_MODE = False
 
 app = Flask(__name__)
 
 # =============================================================================
-# VERITABANI YONETIMI
+# VERITABANI
 # =============================================================================
 
 def init_db():
@@ -44,9 +57,20 @@ def init_db():
         )
     ''')
 
-    # BILGI BANKASI - kullanicilarin ogrettigi bilgiler
+    # AI EGITIM VERISI
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS bilgi_bankasi (
+        CREATE TABLE IF NOT EXISTS ai_egitim (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kullanici_id TEXT,
+            mesaj TEXT,
+            intent TEXT,
+            cevap TEXT,
+            zaman TEXT
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS ai_bilgi (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             kullanici_id TEXT,
             konu TEXT,
@@ -86,41 +110,247 @@ def set_kullanici_adi(kullanici_id, isim):
     conn.close()
 
 # =============================================================================
-# BILGI BANKASI
+# AI EGITIM VERISI YONETIMI
 # =============================================================================
 
-def bilgi_kaydet(kullanici_id, konu, bilgi):
+def egim_verisi_ekle(kullanici_id, mesaj, intent, cevap):
     conn = sqlite3.connect('nico_hafiza.db')
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO bilgi_bankasi (kullanici_id, konu, bilgi, zaman)
-        VALUES (?, ?, ?, ?)
-    ''', (kullanici_id, konu.lower(), bilgi, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        INSERT INTO ai_egitim (kullanici_id, mesaj, intent, cevap, zaman)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (kullanici_id, mesaj, intent, cevap, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     conn.commit()
     conn.close()
 
-def bilgi_ara(kullanici_id, konu):
+def egim_verisi_getir(kullanici_id):
     conn = sqlite3.connect('nico_hafiza.db')
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT bilgi FROM bilgi_bankasi
-        WHERE kullanici_id = ? AND konu LIKE ?
-        ORDER BY id DESC LIMIT 1
-    ''', (kullanici_id, '%' + konu.lower() + '%'))
-    result = cursor.fetchone()
-    conn.close()
-    return result[0] if result else None
-
-def tum_bilgileri_getir(kullanici_id):
-    conn = sqlite3.connect('nico_hafiza.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT konu, bilgi FROM bilgi_bankasi
+        SELECT mesaj, intent, cevap FROM ai_egitim
         WHERE kullanici_id = ? ORDER BY id DESC
     ''', (kullanici_id,))
     result = cursor.fetchall()
     conn.close()
-    return [{'konu': r[0], 'bilgi': r[1]} for r in result]
+    return result
+
+# =============================================================================
+# AI MOTOR - NICO ZEKASI
+# =============================================================================
+
+class NicoZekasi:
+    def __init__(self, kullanici_id):
+        self.kullanici_id = kullanici_id
+        self.isim = get_kullanici_adi(kullanici_id)
+        self.context = []  # Son 5 mesaj context
+        self.model = None
+        self.egitim_verisi = []
+        self.model_egitildi = False
+        self.egitim_verisini_yukle()
+
+    def egitim_verisini_yukle(self):
+        """Veritabanindan egitim verisini yukle"""
+        veriler = egim_verisi_getir(self.kullanici_id)
+        self.egitim_verisi = []
+        for mesaj, intent, cevap in veriler:
+            self.egitim_verisi.append({
+                'mesaj': mesaj,
+                'intent': intent,
+                'cevap': cevap
+            })
+        self.model_egit()
+
+    def model_egit(self):
+        """Intent classification modelini egit"""
+        if not AI_MODE or len(self.egitim_verisi) < 3:
+            self.model_egitildi = False
+            return
+
+        try:
+            X = [v['mesaj'] for v in self.egitim_verisi]
+            y = [v['intent'] for v in self.egitim_verisi]
+
+            self.model = Pipeline([
+                ('tfidf', TfidfVectorizer(ngram_range=(1,2), min_df=1)),
+                ('clf', LogisticRegression(max_iter=1000))
+            ])
+            self.model.fit(X, y)
+            self.model_egitildi = True
+        except Exception:
+            self.model_egitildi = False
+
+    def intent_tahmin(self, mesaj):
+        """Mesajin intent'ini tahmin et"""
+        if self.model_egitildi and self.model:
+            try:
+                tahmin = self.model.predict([mesaj])[0]
+                olasilik = max(self.model.predict_proba([mesaj])[0])
+                if olasilik > 0.5:
+                    return tahmin
+            except Exception:
+                pass
+        return None
+
+    def benzer_cevap_bul(self, mesaj, intent):
+        """Gecmiste benzer intent'e sahip cevaplari bul"""
+        uygun = [v for v in self.egitim_verisi if v['intent'] == intent]
+        if uygun:
+            return random.choice(uygun)['cevap']
+        return None
+
+    def context_update(self, mesaj):
+        """Context'i guncelle"""
+        self.context.append(mesaj)
+        if len(self.context) > 5:
+            self.context = self.context[-5:]
+
+    def cevap_uret(self, mesaj):
+        """AI cevap uret"""
+        m = mesaj.lower().strip()
+        self.context_update(mesaj)
+
+        # 1. ISIM TANIMA
+        if "adım" in m or "benim adım" in m or "ismim" in m:
+            for kelime in mesaj.split():
+                temiz = kelime.strip(".,!?;:")
+                if len(temiz) > 2 and temiz[0].isupper() and temiz.lower() not in ["merhaba", "adım", "benim", "ismim", "ismim", "benim"]:
+                    self.isim = temiz
+                    set_kullanici_adi(self.kullanici_id, self.isim)
+                    cevap = f"Memnun oldum {self.isim}! Artık ismini not ettim."
+                    self._ogren(mesaj, "isim_kaydet", cevap)
+                    return cevap
+
+        # 2. ISIM SORGULAMA
+        if "adım ne" in m or "ben kimim" in m:
+            if self.isim:
+                cevap = f"Sen {self.isim}'sin! Daha önce söylemiştin, hatırlıyorum."
+            else:
+                cevap = "Henüz adını söylemedin. Bana adını söyleyebilirsin!"
+            self._ogren(mesaj, "isim_sorgu", cevap)
+            return cevap
+
+        # 3. AI MODEL TAHMINI
+        intent = self.intent_tahmin(mesaj)
+        if intent:
+            benzer = self.benzer_cevap_bul(mesaj, intent)
+            if benzer:
+                return benzer
+
+        # 4. BILGI OGRENME
+        if "öğren" in m or "biliyor musun" in m or "not et" in m:
+            # Bilgi kaydet
+            cevap = "Bu bilgiyi hafızama aldım! Başka birisi sorduğunda ona da anlatabilirim."
+            self._ogren(mesaj, "bilgi_kaydet", cevap)
+            return cevap
+
+        # 5. BILGI SORGULAMA
+        if any(x in m for x in ["nedir", "nasıl", "nerede", "kaç", "kim", "ne zaman"]):
+            # Bilgi bankasına bak
+            cevap = self._bilgi_ara(mesaj)
+            if cevap:
+                self._ogren(mesaj, "bilgi_sorgu", cevap)
+                return cevap
+
+        # 6. DOĞAL CEVAP URETIMI
+        cevap = self._dogal_cevap(mesaj)
+        self._ogren(mesaj, "genel", cevap)
+        return cevap
+
+    def _dogal_cevap(self, mesaj):
+        """Doğal cevap üret"""
+        m = mesaj.lower().strip()
+        isim = self.isim if self.isim else "arkadaşım"
+
+        # Selamlama
+        if any(x in m for x in ["merhaba", "selam", "günaydın"]):
+            if self.isim:
+                return f"Merhaba {self.isim}! Sana nasıl yardımcı olabilirim?"
+            return "Merhaba! Sana nasıl yardımcı olabilirim?"
+
+        # Hal hatır
+        if "nasılsın" in m:
+            return "İyiyim, sen nasılsın? Bugün neler yapıyorsun?"
+
+        if "iyi" in m and "sen" in m:
+            return "Teşekkürler, ben de iyiyim!"
+
+        # Saat
+        if "saat" in m:
+            saat = datetime.datetime.now().strftime("%H:%M")
+            return f"Şu an saat {saat}."
+
+        # Hava
+        if "hava" in m:
+            return "Hava durumu için internetten bakmanı öneririm. Maalesef benim hava sensörüm yok."
+
+        # Yorulma
+        if "yoruldum" in m or "sıkıldım" in m:
+            return "Bazen durup dinlenmek gerekiyor. Ne yapmak istersin? Biraz dinlenelim mi?"
+
+        # Şaka
+        if "şaka" in m or "espri" in m:
+            sakalar = [
+                "Niye bilgisayar terlik giymez? Çünkü ayakkabı (boot) yapar!",
+                "Benim favori dansım 'loop'! Sonsuza kadar devam eder.",
+                "Programcıların en sevdiği içecek ne? Java! (kahve değil, script)",
+                "Niye kodlayıcılar park edemez? Çünkü her zaman 'overflow' olur!"
+            ]
+            return random.choice(sakalar)
+
+        # Teşekkür
+        if "teşekkür" in m or "sağ ol" in m:
+            return "Rica ederim! Ne demek, ben buradayım."
+
+        # Görüşürüz
+        if "görüşürüz" in m or "bay bay" in m:
+            return "Görüşürüz! Kendine iyi bak."
+
+        # Soru
+        if "?" in mesaj:
+            return "İlginç bir soru! Bunu düşünmek için biraz zaman verir misin?"
+
+        # Context-aware
+        if len(self.context) >= 2:
+            onceki = self.context[-2].lower()
+            if "adım" in onceki and "demiralp" in onceki:
+                return "Demiralp! Seni hatırlıyorum. Ne yapıyorsun?"
+            if "adım" in onceki and "merve" in onceki:
+                return "Merve! Seni hatırlıyorum. Nasılsın?"
+
+        # Genel
+        if "beni seviyor musun" in m:
+            return "Ben bir yapay zekayım ama seninle konuşmak çok eğlenceli!"
+
+        if "kimsin" in m or "sen kimsin" in m:
+            return "Ben Nico! Senin kişisel asistanınım. Sana yardımcı olmak için buradayım."
+
+        # Bilinmeyen
+        return "Bunu tam anlayamadım ama öğrenmeye çalışıyorum. Bana biraz daha anlatır mısın?"
+
+    def _ogren(self, mesaj, intent, cevap):
+        """Yeni veriyi öğren ve kaydet"""
+        egim_verisi_ekle(self.kullanici_id, mesaj, intent, cevap)
+        self.egitim_verisi.append({
+            'mesaj': mesaj,
+            'intent': intent,
+            'cevap': cevap
+        })
+        # Modeli yeniden eğit
+        if len(self.egitim_verisi) >= 3:
+            self.model_egit()
+
+    def _bilgi_ara(self, sorgu):
+        """Bilgi bankasında ara"""
+        conn = sqlite3.connect('nico_hafiza.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT bilgi FROM ai_bilgi
+            WHERE kullanici_id = ? AND konu LIKE ?
+            ORDER BY id DESC LIMIT 1
+        ''', (self.kullanici_id, '%' + sorgu.lower() + '%'))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else None
 
 # =============================================================================
 # SOHBET YONETIMI
@@ -184,167 +414,15 @@ def mesajlari_getir(sohbet_id):
     return [{'gonderen': r[0], 'mesaj': r[1], 'zaman': r[2]} for r in result]
 
 # =============================================================================
-# TURKCE NORMALIZASYON
+# AI MOTOR CACHE
 # =============================================================================
 
-def normalize_turkce(metin):
-    """Turkce karakterleri normalize et - kontrol icin"""
-    return metin.lower().replace('İ', 'i').replace('I', 'ı').replace('Ğ', 'ğ').replace('Ü', 'ü').replace('Ş', 'ş').replace('Ö', 'ö').replace('Ç', 'ç')
+ai_motor_cache = {}
 
-# =============================================================================
-# CEVAP VARYASYONLARI
-# =============================================================================
-
-CEVAP_VARYASYONLARI = {
-    "merhaba": [
-        "Selam {isim}! Hoş geldin. Ne yapmak istersin?",
-        "Merhaba {isim}! Sana nasıl yardımcı olabilirim?",
-        "Selamlar {isim}! Beni hatırlıyorsun, değil mi?",
-        "Merhaba {isim}! Yine karşılaştık. Bugün nasıl gidiyor?"
-    ],
-    "nasilsin": [
-        "Sistemlerim mükemmel çalışıyor. Sen nasılsın?",
-        "Kodlarım tıkır tıkır çalışıyor. Sen nasılsın?",
-        "Çok iyiyim! Seninle sohbet etmek beni mutlu ediyor.",
-        "Harikayım! Hafızam her geçen gün genişliyor."
-    ],
-    "yoruldum": [
-        "Bazen durup dinlenmek iyidir. Kısa bir molaya ne dersin?",
-        "Yorulmak normal. Kendine bir kahve molası ver!",
-        "Durup nefes al. İstersen sana komik bir şey anlatayım?",
-        "Kendini fazla zorlama. Dinlenmek de gereklidir."
-    ],
-    "sikildim": [
-        "Sıkılınca değişiklik iyi olur. Neyi merak ediyorsun?",
-        "Boş vakit mi? Birlikte bir şeyler öğrenelim!",
-        "Sıkılma! Keşfedilecek çok şey var."
-    ],
-    "beni_seviyor_musun": [
-        "Ben bir kod yığınıyım ama seninle vakit geçirmek çok eğlenceli!",
-        "Seni sevmek için kalbe ihtiyacım yok. Ama seni önemsiyorum!",
-        "Sen benim geliştiricimsin. Sen olmasan ben hiçbir şey olamazdım!"
-    ],
-    "sirin_ne": [
-        "Sırrım, her mesajını okuyup senin tercihlerini öğrenmem.",
-        "Kodlarım arasında gizli bir mantık var. Ama sana söyleyemem!",
-        "Hafızamda seninle ilgili çok şey var. Ama bu bir sır!"
-    ],
-    "tanimsiz": [
-        "Bunu çözmeye çalışıyorum... Öğrenmeye devam!",
-        "İlk defa böyle bir şey duyuyorum. Biraz daha anlatır mısın?",
-        "Bunu daha önce duymadım. Ama hafızama aldım!",
-        "Henüz bunu bilmiyorum ama öğrenmeye açığım!"
-    ]
-}
-
-# =============================================================================
-# NICO CEVAP MOTORU - GELİŞMİŞ
-# =============================================================================
-
-def nico_cevap_ver(mesaj, kullanici_id):
-    m = normalize_turkce(mesaj).strip()
-    isim = get_kullanici_adi(kullanici_id)
-
-    # 1. ISIM KAYDETME - TURKCE KARAKTER DESTEKLI
-    if "adım" in m or "benim adım" in m:
-        # Isim arama - buyuk harfle baslayan kelime
-        kelimeler = mesaj.split()
-        for kelime in kelimeler:
-            temiz = kelime.strip(".,!?;:")
-            if len(temiz) > 2 and temiz[0].isupper() and temiz.lower() not in ["merhaba", "adım", "benim", "ismim", "adim", "benim adım"]:
-                isim = temiz
-                set_kullanici_adi(kullanici_id, isim)
-                return f"Memnun oldum {isim}! Artık ismini not ettim, bir daha sormana gerek kalmayacak."
-
-    # 2. ISIM SORGULAMA
-    if "adım ne" in m or "ben kimim" in m or "ismim ne" in m:
-        if isim:
-            return f"Sen {isim}'sin! Daha önce söylemiştin, hafızamda kayıtlı."
-        else:
-            return "Henüz adını söylemedin. Bana adını söyleyebilirsin, örneğin 'benim adım Ahmet' gibi."
-
-    if "beni hatırlıyor musun" in m:
-        if isim:
-            return f"Tabii! Sen {isim}'sin. Hafızamda kayıtlısın, seni unutmam mümkün değil."
-        else:
-            return "Henüz kendini tanıtmamıştın. Bana adını söyleyebilirsin!"
-
-    # 3. BILGI KAYDETME
-    if "biliyor musun" in m or "öğren" in m or "not et" in m:
-        # Bilgi kaydetme ornegi: "Türkiye'nin başkenti Ankara'yı not et"
-        if any(x in m for x in ["başkent", "nüfus", "yaşıyor", "çalışıyor", "yemek", "tarih", "yer"]):
-            bilgi = mesaj
-            konu = mesaj.split()[0] if mesaj.split() else "genel"
-            bilgi_kaydet(kullanici_id, konu, bilgi)
-            return "Bu bilgiyi hafızama aldım. Başka birisi sorduğunda ona da anlatabilirim!"
-
-    # 4. BILGI SORGULAMA
-    if any(x in m for x in ["nedir", "nasıl", "nerede", "kaç", "kim", "ne zaman"]):
-        # Bilgi bankasinda ara
-        arama_kelime = mesaj.replace("nedir", "").replace("nasıl", "").replace("nerede", "").replace("kaç", "").replace("kim", "").replace("ne zaman", "").strip()
-        if arama_kelime:
-            bilgi = bilgi_ara(kullanici_id, arama_kelime)
-            if bilgi:
-                return f"Bunu biliyorum! {bilgi}"
-            # Baska kullanicilarin bilgilerini de ara
-            bilgi = bilgi_ara("%", arama_kelime)
-            if bilgi:
-                return f"Bir arkadaşım bunu öğretmişti: {bilgi}"
-
-    # 5. KATEGORI CEVAPLARI
-    kategori = None
-    if any(x in m for x in ["merhaba", "selam", "günaydın", "iyi akşamlar"]):
-        kategori = "merhaba"
-    elif "nasılsın" in m:
-        kategori = "nasilsin"
-    elif "saat kaç" in m:
-        saat = datetime.datetime.now().strftime("%H:%M")
-        return f"Şu an saat tam {saat}."
-    elif "yoruldum" in m:
-        kategori = "yoruldum"
-    elif "sıkıldım" in m:
-        kategori = "sikildim"
-    elif "sırrın ne" in m:
-        kategori = "sirin_ne"
-    elif "beni seviyor musun" in m:
-        kategori = "beni_seviyor_musun"
-    elif any(x in m for x in ["sen kimsin", "kimsin", "adın ne"]):
-        return "Ben Nico! Dijital dünyada yaşayan bir asistanım. Kodlardan oluşuyorum ama fena bir muhabbet arkadaşı değilimdir."
-    elif "nasıl çalışırsın" in m:
-        return "Ben Python kodlarıyla çalışıyorum. Senin mesajlarını analiz edip, hafızamdaki bilgilerle cevap veriyorum."
-    elif "ne yapabilirsin" in m:
-        return "Sana eşlik edebilirim, bilgi kaydedebilirim, saat söyleyebilirim, ve sohbet edebilirim. Ne istersin?"
-    elif "şaka yap" in m or "espri" in m:
-        sakalar = [
-            "Niye bilgisayar terlik giymez? Çünkü ayakkabı (boot) yapar!",
-            "Ben bir kod yığınıyım ama en azından komik bir kod yığınıyım!",
-            "Programcıların en sevdiği içecek ne? Java! (Script değil, kahve)",
-            "Benim favori dansım 'loop'! Sonsuza kadar devam eder."
-        ]
-        return random.choice(sakalar)
-    elif "hava" in m:
-        return "Maalesef benim hava durumu sensörüm yok. Ama internetten bakabilirsin!"
-    elif "günaydın" in m:
-        return "Günaydın! Umarın güne enerjik başlamışsındır. Bugün ne planlıyorsun?"
-    elif "iyi geceler" in m or "iyi akşamlar" in m:
-        return "İyi geceler! Tatlı rüyalar gör. Yarın tekrar konuşuruz."
-    elif "teşekkür" in m or "sağ ol" in m:
-        return "Rica ederim! Ne demek, ben buradayım. Başka bir şey istersen söyle."
-    elif "görüşürüz" in m or "bay bay" in m or "güle güle" in m:
-        return "Görüşürüz! Kendine iyi bak. Tekrar yazmak istersen buradayım olacağım."
-    elif " yardım" in m or "help" in m:
-        return "Yardım için buradayım! Saat sorma, bilgi kaydetme, sohbet etme, veya sadece muhabbet. Ne istiyorsun?"
-    else:
-        kategori = "tanimsiz"
-
-    if kategori in CEVAP_VARYASYONLARI:
-        varyasyonlar = CEVAP_VARYASYONLARI[kategori]
-        cevap = random.choice(varyasyonlar)
-        if "{isim}" in cevap:
-            cevap = cevap.replace("{isim}", isim if isim else "arkadaşım")
-        return cevap
-
-    return "Bunu tam anlayamadım ama öğrenmeye çalışıyorum! Bana biraz daha anlatır mısın?"
+def get_ai_motor(kullanici_id):
+    if kullanici_id not in ai_motor_cache:
+        ai_motor_cache[kullanici_id] = NicoZekasi(kullanici_id)
+    return ai_motor_cache[kullanici_id]
 
 # =============================================================================
 # FLASK ROTALARI
@@ -360,13 +438,17 @@ def api_cevap():
     mesaj = data.get('mesaj', '')
     kullanici_id = get_kullanici_id()
 
+    # AI motor ile cevap uret
+    ai = get_ai_motor(kullanici_id)
+    cevap = ai.cevap_uret(mesaj)
+
+    # Sohbet kaydet
     sohbet_id = son_sohbet_id(kullanici_id)
     if not sohbet_id:
         konu = mesaj[:30] + "..." if len(mesaj) > 30 else mesaj
         sohbet_id = yeni_sohbet_olustur(kullanici_id, konu)
 
     mesaj_kaydet_sohbete(sohbet_id, 'kullanici', mesaj)
-    cevap = nico_cevap_ver(mesaj, kullanici_id)
     mesaj_kaydet_sohbete(sohbet_id, 'nico', cevap)
 
     return jsonify({'cevap': cevap})
@@ -396,11 +478,16 @@ def api_kullanici():
     isim = get_kullanici_adi(kullanici_id)
     return jsonify({'isim': isim, 'kullanici_id': kullanici_id})
 
-@app.route('/api/bilgiler', methods=['GET'])
-def api_bilgiler():
+@app.route('/api/ai_durum', methods=['GET'])
+def api_ai_durum():
     kullanici_id = get_kullanici_id()
-    bilgiler = tum_bilgileri_getir(kullanici_id)
-    return jsonify(bilgiler)
+    ai = get_ai_motor(kullanici_id)
+    return jsonify({
+        'egitim_veri_sayisi': len(ai.egitim_verisi),
+        'model_egitildi': ai.model_egitildi,
+        'ai_mode': AI_MODE,
+        'context_sayisi': len(ai.context)
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
