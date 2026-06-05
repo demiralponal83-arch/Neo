@@ -138,6 +138,14 @@
             color: #999;
             padding: 40px 20px;
         }
+        .user-info {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-size: 0.85em;
+            text-align: center;
+        }
         @media (max-width: 900px) {
             body { flex-direction: column; }
             .history-container { width: 100%; height: 40vh; }
@@ -166,6 +174,9 @@
         <div class="history-header">
             <h2>Sohbet Geçmişi</h2>
         </div>
+        <div class="user-info" id="userInfo">
+            Kullanıcı: <span id="userName">Bilinmiyor</span>
+        </div>
         <div class="history-list" id="historyList">
             <div class="history-empty">
                 Henüz sohbet geçmişi yok.
@@ -177,6 +188,17 @@
         const messagesDiv = document.getElementById('messages');
         const userInput = document.getElementById('userInput');
         const historyList = document.getElementById('historyList');
+        const userNameSpan = document.getElementById('userName');
+
+        // Kullanıcı ID oluştur
+        function getUserId() {
+            let userId = localStorage.getItem('nico_user_id');
+            if (!userId) {
+                userId = 'user_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('nico_user_id', userId);
+            }
+            return userId;
+        }
 
         function addMessage(text, role) {
             const div = document.createElement('div');
@@ -188,7 +210,9 @@
 
         async function loadHistory() {
             try {
-                const response = await fetch('/api/sohbetler');
+                const response = await fetch('/api/sohbetler', {
+                    headers: { 'X-User-ID': getUserId() }
+                });
                 const sohbetler = await response.json();
                 
                 if (sohbetler.length === 0) {
@@ -211,6 +235,20 @@
             }
         }
 
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/api/kullanici', {
+                    headers: { 'X-User-ID': getUserId() }
+                });
+                const data = await response.json();
+                if (data.isim) {
+                    userNameSpan.textContent = data.isim;
+                }
+            } catch (error) {
+                console.error('Kullanıcı bilgisi yüklenirken hata:', error);
+            }
+        }
+
         async function sendMessage() {
             const text = userInput.value.trim();
             if (!text) return;
@@ -221,13 +259,17 @@
             try {
                 const response = await fetch('/api/cevap', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-User-ID': getUserId()
+                    },
                     body: JSON.stringify({ mesaj: text })
                 });
                 const data = await response.json();
                 addMessage(data.cevap, 'assistant');
-                // Geçmişi yenile
+                // Geçmişi ve kullanıcı bilgisini yenile
                 loadHistory();
+                loadUserInfo();
             } catch (error) {
                 addMessage('Bir hata oluştu, tekrar dene.', 'assistant');
             }
@@ -237,8 +279,9 @@
             if (e.key === 'Enter') sendMessage();
         });
 
-        // Sayfa yüklenince geçmişi yükle
+        // Sayfa yüklenince bilgileri yükle
         loadHistory();
+        loadUserInfo();
     </script>
 </body>
 </html>
