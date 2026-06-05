@@ -116,24 +116,24 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
-        function sendMessage() {
+        async function sendMessage() {
             const text = userInput.value.trim();
             if (!text) return;
             
             addMessage(text, 'user');
             userInput.value = '';
             
-            // Nico'nun basit cevap mantığı
-            let cevap;
-            if (text.toLowerCase().includes('merhaba')) {
-                cevap = 'Selam! Ben Nico, senin kişisel asistanınım.';
-            } else if (text.toLowerCase().includes('nasılsın')) {
-                cevap = 'Süperim! Kodlarım tıkır tıkır çalışıyor, ya sen?';
-            } else {
-                cevap = 'Bu konuyu şu an düşünecek kadar gelişmedim ama öğrenmeye devam ediyorum!';
+            try {
+                const response = await fetch('/api/cevap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mesaj: text })
+                });
+                const data = await response.json();
+                addMessage(data.cevap, 'assistant');
+            } catch (error) {
+                addMessage('Bir hata oluştu, tekrar dene.', 'assistant');
             }
-            
-            setTimeout(() => addMessage(cevap, 'assistant'), 500);
         }
 
         userInput.addEventListener('keypress', (e) => {
