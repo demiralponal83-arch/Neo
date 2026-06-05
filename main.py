@@ -1,7 +1,6 @@
 import sqlite3
 import datetime
 import random
-import os
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
@@ -13,6 +12,7 @@ app = Flask(__name__)
 def init_db():
     conn = sqlite3.connect('nico_hafiza.db')
     cursor = conn.cursor()
+
     # Kullanicilar tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS kullanicilar (
@@ -22,16 +22,29 @@ def init_db():
             olusturma_tarihi TEXT
         )
     ''')
-    # Sohbetler tablosu
+
+    # Sohbetler (konu basliklari) tablosu
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sohbetler (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             kullanici_id TEXT,
-            kullanici_mesaji TEXT,
-            nico_cevabi TEXT,
+            konu TEXT,
             zaman TEXT
         )
     ''')
+
+    # Mesajlar tablosu
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS mesajlar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sohbet_id INTEGER,
+            gonderen TEXT,
+            mesaj TEXT,
+            zaman TEXT,
+            FOREIGN KEY (sohbet_id) REFERENCES sohbetler(id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -42,7 +55,6 @@ init_db()
 # =============================================================================
 
 def get_kullanici_id():
-    """Her kullanici icin benzersiz ID olustur"""
     return request.headers.get('X-User-ID', 'default')
 
 def get_kullanici_adi(kullanici_id):
@@ -64,77 +76,110 @@ def set_kullanici_adi(kullanici_id, isim):
     conn.close()
 
 # =============================================================================
-# HAFIZA YONETIMI
+# SOHBET YONETIMI
 # =============================================================================
 
-def mesaj_kaydet(kullanici_id, kullanici_mesaji, nico_cevabi):
+def yeni_sohbet_olustur(kullanici_id, konu):
     conn = sqlite3.connect('nico_hafiza.db')
     cursor = conn.cursor()
     zaman = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute('''
-        INSERT INTO sohbetler (kullanici_id, kullanici_mesaji, nico_cevabi, zaman)
+        INSERT INTO sohbetler (kullanici_id, konu, zaman)
+        VALUES (?, ?, ?)
+    ''', (kullanici_id, konu, zaman))
+    sohbet_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return sohbet_id
+
+def mesaj_kaydet_sohbete(sohbet_id, gonderen, mesaj):
+    conn = sqlite3.connect('nico_hafiza.db')
+    cursor = conn.cursor()
+    zaman = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute('''
+        INSERT INTO mesajlar (sohbet_id, gonderen, mesaj, zaman)
         VALUES (?, ?, ?, ?)
-    ''', (kullanici_id, kullanici_mesaji, nico_cevabi, zaman))
+    ''', (sohbet_id, gonderen, mesaj, zaman))
     conn.commit()
     conn.close()
 
-def kullanici_sohbetlerini_getir(kullanici_id):
+def son_sohbet_id(kullanici_id):
+    """Son olusturulan sohbetin ID'sini dondur"""
     conn = sqlite3.connect('nico_hafiza.db')
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT kullanici_mesaji, nico_cevabi FROM sohbetler
+        SELECT id FROM sohbetler
+        WHERE kullanici_id = ? ORDER BY id DESC LIMIT 1
+    ''', (kullanici_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def sohbetleri_getir(kullanici_id):
+    conn = sqlite3.connect('nico_hafiza.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, konu, zaman FROM sohbetler
         WHERE kullanici_id = ? ORDER BY id DESC
     ''', (kullanici_id,))
     result = cursor.fetchall()
     conn.close()
-    return result
+    return [{'id': r[0], 'konu': r[1], 'zaman': r[2]} for r in result]
+
+def mesajlari_getir(sohbet_id):
+    conn = sqlite3.connect('nico_hafiza.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT gonderen, mesaj, zaman FROM mesajlar
+        WHERE sohbet_id = ? ORDER BY id ASC
+    ''', (sohbet_id,))
+    result = cursor.fetchall()
+    conn.close()
+    return [{'gonderen': r[0], 'mesaj': r[1], 'zaman': r[2]} for r in result]
 
 # =============================================================================
-# CEVAP VARYASYONLARI (Tekrar etmemek icin)
+# CEVAP VARYASYONLARI
 # =============================================================================
 
 CEVAP_VARYASYONLARI = {
     "merhaba": [
-        "Selam {isim}! Bugunun tarihi {tarih}. Nasilsin?",
-        "Merhaba {isim}! Hos geldin. Bugun nasil gidiyor?",
+        "Selam {isim}! Hos geldin. Ne yapmak istersin?",
+        "Merhaba {isim}! Sana nasil yardimci olabilirim?",
         "Selamlar {isim}! Beni hatirliyorsun, degil mi?",
-        "Merhaba {isim}! Yine karsilastik. Ne yapmak istersin?"
+        "Merhaba {isim}! Yine karsilastik."
     ],
-    "nasılsın": [
-        "Sistemlerim mukemmel calisiyor. Hafizamda tonla bilgi var. Senin gunun nasil?",
-        "Kodlarim tikiri tikir calisiyor. Sen nasilsin, bir sikinti var mi?",
-        "Cok iyiyim! Seninle sohbet etmek beni mutlu ediyor. Sen nasilsin?",
-        "Harikayim! Hafizam her gecen gun genisliyor. Senin icin ne yapabilirim?"
+    "nasilsin": [
+        "Sistemlerim mukemmel calisiyor. Sen nasilsin?",
+        "Kodlarim tikiri tikir calisiyor. Sen nasilsin?",
+        "Cok iyiyim! Seninle sohbet etmek beni mutlu ediyor.",
+        "Harikayim! Hafizam her gecen gun genisliyor."
     ],
     "yoruldum": [
-        "Bazen durup dinlenmek iyidir. Istersen biraz muzik onereyim?",
-        "Yorulmak normal. Kisa bir molaya ne dersin? Sana bir fikir vereyim mi?",
-        "Kendine bir kahve molası ver. Sonra tekrar devam edersin!",
-        "Durup nefes al. Istersen sana komik bir sey anlatayim?"
+        "Bazen durup dinlenmek iyidir. Kisa bir molaya ne dersin?",
+        "Yorulmak normal. Kendine bir kahve molasi ver!",
+        "Durup nefes al. Istersen sana komik bir sey anlatayim?",
+        "Kendini fazla zorlama. Dinlenmek de gereklidir."
     ],
-    "sıkıldım": [
-        "Sikilinca degisiklik iyi olur. Istersen sana bir bulmaca sorayim?",
-        "Bos vakit mi? Istersen birlikte bir seyler ogrenelim?",
-        "Sikilma! Dunya uzerinde kesfedilecek cok sey var. Neyi merak ediyorsun?",
-        "Istersen sana ilginc bir bilgi vereyim? Ama once sen bir sey sor!"
+    "sikildim": [
+        "Sikilinca degisiklik iyi olur. Neyi merak ediyorsun?",
+        "Bos vakit mi? Birlikte bir seyler ogrenelim!",
+        "Sikilma! Kesfedilecek cok sey var."
     ],
-    "beni seviyor musun": [
+    "beni_seviyor_musun": [
         "Ben bir kod yiginiyim ama seninle vakit gecirmek cok eglenceli!",
         "Seni sevmek icin kalbe ihtiyacim yok. Ama seni onemsiyorum!",
-        "Sen benim gelistiricimsin. Sen olmasan ben hicbir sey olamazdim!",
-        "Ask buyuk bir kelime ama seni kardesim gibi goruyorum!"
+        "Sen benim gelistiricimsin. Sen olmasan ben hicbir sey olamazdim!"
     ],
-    "sırrın ne": [
+    "sirin_ne": [
         "Sirrim, her mesajini okuyup senin tercihlerini ogrenmem.",
         "Kodlarim arasinda gizli bir mantik var. Ama sana soyleyemem!",
-        "Hafizamda seninle ilgili cok sey var. Ama bu bir sir!",
-        "Sirrim: Her gun biraz daha akilli oluyorum. Farkinda misin?"
+        "Hafizamda seninle ilgili cok sey var. Ama bu bir sir!"
     ],
-    "tanımlanamadı": [
-        "Hmm, '{mesaj}' konusu henuz kodlarimda tam tanimli degil. Ogrenmeye acigim!",
-        "Bunu daha once duymadim. Ama hafizama aldim, ogrenecegim!",
+    "tanimsiz": [
+        "Bunu cozmeye calisiyorum... Ogrenmeye devam!",
         "Ilk defa boyle bir sey duyuyorum. Biraz daha anlatir misin?",
-        "Bunu cozmeye calisiyorum... Ama henuz hazir degilim. Ogrenmeye devam!"
+        "Bunu daha once duymadim. Ama hafizama aldim!",
+        "Henuz bunu bilmiyorum ama ogrenmeye acigim!"
     ]
 }
 
@@ -144,83 +189,60 @@ CEVAP_VARYASYONLARI = {
 
 def nico_cevap_ver(mesaj, kullanici_id):
     m = mesaj.lower().strip()
-    
-    # Kullanici adini al
     isim = get_kullanici_adi(kullanici_id)
-    
+
     # Kullanici adini kaydet
-    if "adım" in m and any(harf.isupper() for harf in mesaj):
-        # Buyuk harfle baslayan ismi bul
+    if "adim" in m and any(harf.isupper() for harf in mesaj):
         kelimeler = mesaj.split()
         for kelime in kelimeler:
-            if kelime[0].isupper() and len(kelime) > 2 and kelime.lower() not in ["merhaba", "adım", "benim"]:
+            if kelime[0].isupper() and len(kelime) > 2 and kelime.lower() not in ["merhaba", "adim", "benim"]:
                 isim = kelime
                 set_kullanici_adi(kullanici_id, isim)
                 return f"Memnun oldum {isim}! Artik ismini not ettim."
-    
+
     # Hafiza sorulari
-    if "adım ne" in m or "ben kimim" in m:
+    if "adim ne" in m or "ben kimim" in m:
         if isim:
-            return f"Sen {isim}'sin! Daha once söylemistin, hatirliyorum."
+            return f"Sen {isim}'sin! Daha once soylemistin, hatirliyorum."
         else:
-            return "Henüz adini soylemedin. Bana adini soyleyebilirsin!"
-    
-    if "beni hatırlıyor musun" in m:
+            return "Henuz adini soylemedin. Bana adini soyleyebilirsin!"
+
+    if "beni hatirliyor musun" in m:
         if isim:
             return f"Tabii! Sen {isim}'sin. Hafizamda kayitlisin."
         else:
-            return "Henüz kendini tanitmamistin. Bana adini söyleyebilirsin!"
-    
-    # Kategorileri kontrol et
+            return "Henuz kendini tanitmamistin. Bana adini soyleyebilirsin!"
+
+    # Kategoriler
     kategori = None
-    if any(x in m for x in ["merhaba", "selam", "günaydın", "iyi akşamlar"]):
+    if any(x in m for x in ["merhaba", "selam", "gunaydin", "iyi aksamlar"]):
         kategori = "merhaba"
-    elif "nasılsın" in m:
-        kategori = "nasılsın"
-    elif "saat kaç" in m:
+    elif "nasilsin" in m:
+        kategori = "nasilsin"
+    elif "saat kac" in m:
         saat = datetime.datetime.now().strftime("%H:%M")
-        return f"Şu an saat tam {saat}. Vakit su gibi akıp gidiyor, değil mi?"
+        return f"Su an saat tam {saat}."
     elif "yoruldum" in m:
         kategori = "yoruldum"
-    elif "sıkıldım" in m:
-        kategori = "sıkıldım"
-    elif "sırrın ne" in m:
-        kategori = "sırrın ne"
+    elif "sikildim" in m:
+        kategori = "sikildim"
+    elif "sirrin ne" in m:
+        kategori = "sirin_ne"
     elif "beni seviyor musun" in m:
-        kategori = "beni seviyor musun"
-    elif any(x in m for x in ["sen kimsin", "kimsin", "adın ne"]):
-        return "Ben Nico! Dijital dünyada yaşayan bir asistanım. Kodlardan oluşuyorum ama fena bir muhabbet arkadaşı değilimdir."
+        kategori = "beni_seviyor_musun"
+    elif any(x in m for x in ["sen kimsin", "kimsin", "adin ne"]):
+        return "Ben Nico! Dijital dunyada yasayan bir asistanim."
     else:
-        kategori = "tanımlanamadı"
-    
-    # Varyasyon sec
+        kategori = "tanimsiz"
+
     if kategori in CEVAP_VARYASYONLARI:
         varyasyonlar = CEVAP_VARYASYONLARI[kategori]
-        # Kullanicinin gecmis cevaplarini al
-        gecmis = kullanici_sohbetlerini_getir(kullanici_id)
-        son_cevaplar = [s[1] for s in gecmis[:5]]  # Son 5 cevap
-        
-        # Tekrar etmeyen bir cevap bul
-        uygunlar = [v for v in varyasyonlar if v not in son_cevaplar]
-        if not uygunlar:
-            uygunlar = varyasyonlar
-        
-        cevap = random.choice(uygunlar)
-        
-        # Formatla
+        cevap = random.choice(varyasyonlar)
         if "{isim}" in cevap:
-            if isim:
-                cevap = cevap.replace("{isim}", isim)
-            else:
-                cevap = cevap.replace("{isim}", "arkadaşım")
-        if "{tarih}" in cevap:
-            cevap = cevap.replace("{tarih}", str(datetime.date.today()))
-        if "{mesaj}" in cevap:
-            cevap = cevap.replace("{mesaj}", mesaj)
-        
+            cevap = cevap.replace("{isim}", isim if isim else "arkadasim")
         return cevap
-    
-    return "Bunu anlamadım ama öğrenmeye çalışıyorum!"
+
+    return "Bunu anlamadim ama ogrenmeye calisiyorum!"
 
 # =============================================================================
 # FLASK ROTALARI
@@ -235,22 +257,44 @@ def api_cevap():
     data = request.get_json()
     mesaj = data.get('mesaj', '')
     kullanici_id = get_kullanici_id()
+
+    # Son sohbeti bul veya yeni olustur
+    sohbet_id = son_sohbet_id(kullanici_id)
+
+    # Eger sohbet yoksa, yeni olustur (konu = ilk mesaj)
+    if not sohbet_id:
+        konu = mesaj[:30] + "..." if len(mesaj) > 30 else mesaj
+        sohbet_id = yeni_sohbet_olustur(kullanici_id, konu)
+
+    # Kullanici mesajini kaydet
+    mesaj_kaydet_sohbete(sohbet_id, 'kullanici', mesaj)
+
+    # Nico cevap ver
     cevap = nico_cevap_ver(mesaj, kullanici_id)
-    mesaj_kaydet(kullanici_id, mesaj, cevap)
+
+    # Nico cevabini kaydet
+    mesaj_kaydet_sohbete(sohbet_id, 'nico', cevap)
+
     return jsonify({'cevap': cevap})
 
 @app.route('/api/sohbetler', methods=['GET'])
 def api_sohbetler():
     kullanici_id = get_kullanici_id()
-    conn = sqlite3.connect('nico_hafiza.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT id, kullanici_mesaji, nico_cevabi FROM sohbetler
-        WHERE kullanici_id = ? ORDER BY id DESC
-    ''', (kullanici_id,))
-    sohbetler = cursor.fetchall()
-    conn.close()
-    return jsonify([{'id': s[0], 'kullanici_mesaji': s[1], 'nico_cevabi': s[2]} for s in sohbetler])
+    sohbetler = sohbetleri_getir(kullanici_id)
+    return jsonify(sohbetler)
+
+@app.route('/api/sohbet/<int:sohbet_id>', methods=['GET'])
+def api_sohbet_detay(sohbet_id):
+    mesajlar = mesajlari_getir(sohbet_id)
+    return jsonify(mesajlar)
+
+@app.route('/api/yeni-sohbet', methods=['POST'])
+def api_yeni_sohbet():
+    data = request.get_json()
+    konu = data.get('konu', 'Yeni Sohbet')
+    kullanici_id = get_kullanici_id()
+    sohbet_id = yeni_sohbet_olustur(kullanici_id, konu)
+    return jsonify({'sohbet_id': sohbet_id})
 
 @app.route('/api/kullanici', methods=['GET'])
 def api_kullanici():

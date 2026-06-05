@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nico - Kişisel Asistan</title>
+    <title>Nico - Kisisel Asistan</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -87,7 +87,7 @@
             font-size: 1em;
         }
         .chat-input button:hover { background: #333; }
-        /* Sağ taraf - Sohbet geçmişi */
+        /* Sag taraf - Sohbet gecmisi */
         .history-container {
             width: 350px;
             background: white;
@@ -107,6 +107,17 @@
             border-bottom: 1px solid #e0e0e0;
         }
         .history-header h2 { font-size: 1.2em; }
+        .new-chat-btn {
+            background: black;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 10px 20px;
+            font-size: 0.9em;
+        }
+        .new-chat-btn:hover { background: #333; }
         .history-list {
             flex: 1;
             overflow-y: auto;
@@ -124,14 +135,15 @@
         .history-item:hover {
             border-color: black;
         }
-        .history-item .user-msg {
+        .history-item .konu {
             font-weight: bold;
-            margin-bottom: 5px;
             color: black;
+            margin-bottom: 5px;
+            font-size: 1em;
         }
-        .history-item .nico-msg {
+        .history-item .zaman {
             color: #666;
-            font-size: 0.9em;
+            font-size: 0.8em;
         }
         .history-empty {
             text-align: center;
@@ -142,7 +154,7 @@
             background: #f0f0f0;
             padding: 10px;
             border-radius: 10px;
-            margin-bottom: 10px;
+            margin: 10px 20px;
             font-size: 0.85em;
             text-align: center;
         }
@@ -157,29 +169,30 @@
     <div class="chat-container">
         <div class="chat-header">
             <h1>Nico</h1>
-            <p>Kişisel Asistanın</p>
+            <p>Kisisel Asistanin</p>
         </div>
         <div class="chat-messages" id="messages">
             <div class="message assistant">
-                Merhaba! Ben Nico. Size nasıl yardımcı olabilirim?
+                Merhaba! Ben Nico. Size nasil yardimci olabilirim?
             </div>
         </div>
         <div class="chat-input">
-            <input type="text" id="userInput" placeholder="Bir şeyler yaz...">
-            <button onclick="sendMessage()">Gönder</button>
+            <input type="text" id="userInput" placeholder="Bir seyler yaz...">
+            <button onclick="sendMessage()">Gonder</button>
         </div>
     </div>
 
     <div class="history-container">
         <div class="history-header">
-            <h2>Sohbet Geçmişi</h2>
+            <h2>Sohbet Gecmisi</h2>
         </div>
         <div class="user-info" id="userInfo">
-            Kullanıcı: <span id="userName">Bilinmiyor</span>
+            Kullanici: <span id="userName">Bilinmiyor</span>
         </div>
+        <button class="new-chat-btn" onclick="yeniSohbet()">+ Yeni Sohbet</button>
         <div class="history-list" id="historyList">
             <div class="history-empty">
-                Henüz sohbet geçmişi yok.
+                Henuz sohbet gecmisi yok.
             </div>
         </div>
     </div>
@@ -190,7 +203,6 @@
         const historyList = document.getElementById('historyList');
         const userNameSpan = document.getElementById('userName');
 
-        // Kullanıcı ID oluştur
         function getUserId() {
             let userId = localStorage.getItem('nico_user_id');
             if (!userId) {
@@ -216,7 +228,7 @@
                 const sohbetler = await response.json();
                 
                 if (sohbetler.length === 0) {
-                    historyList.innerHTML = '<div class="history-empty">Henüz sohbet geçmişi yok.</div>';
+                    historyList.innerHTML = '<div class="history-empty">Henuz sohbet gecmisi yok.</div>';
                     return;
                 }
 
@@ -224,14 +236,50 @@
                 sohbetler.forEach(s => {
                     const item = document.createElement('div');
                     item.className = 'history-item';
+                    item.onclick = () => sohbetYukle(s.id);
                     item.innerHTML = `
-                        <div class="user-msg">Sen: ${s.kullanici_mesaji}</div>
-                        <div class="nico-msg">Nico: ${s.nico_cevabi}</div>
+                        <div class="konu">${s.konu}</div>
+                        <div class="zaman">${s.zaman}</div>
                     `;
                     historyList.appendChild(item);
                 });
             } catch (error) {
-                console.error('Geçmiş yüklenirken hata:', error);
+                console.error('Gecmis yuklenirken hata:', error);
+            }
+        }
+
+        async function sohbetYukle(sohbetId) {
+            try {
+                const response = await fetch('/api/sohbet/' + sohbetId, {
+                    headers: { 'X-User-ID': getUserId() }
+                });
+                const mesajlar = await response.json();
+                
+                messagesDiv.innerHTML = '';
+                mesajlar.forEach(m => {
+                    addMessage(m.mesaj, m.gonderen === 'kullanici' ? 'user' : 'assistant');
+                });
+            } catch (error) {
+                console.error('Sohbet yuklenirken hata:', error);
+            }
+        }
+
+        async function yeniSohbet() {
+            try {
+                const response = await fetch('/api/yeni-sohbet', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-User-ID': getUserId()
+                    },
+                    body: JSON.stringify({ konu: 'Yeni Sohbet' })
+                });
+                const data = await response.json();
+                
+                messagesDiv.innerHTML = '<div class="message assistant">Yeni sohbet basladi! Size nasil yardimci olabilirim?</div>';
+                loadHistory();
+            } catch (error) {
+                console.error('Yeni sohbet olusturulurken hata:', error);
             }
         }
 
@@ -245,7 +293,7 @@
                     userNameSpan.textContent = data.isim;
                 }
             } catch (error) {
-                console.error('Kullanıcı bilgisi yüklenirken hata:', error);
+                console.error('Kullanici bilgisi yuklenirken hata:', error);
             }
         }
 
@@ -267,11 +315,10 @@
                 });
                 const data = await response.json();
                 addMessage(data.cevap, 'assistant');
-                // Geçmişi ve kullanıcı bilgisini yenile
                 loadHistory();
                 loadUserInfo();
             } catch (error) {
-                addMessage('Bir hata oluştu, tekrar dene.', 'assistant');
+                addMessage('Bir hata olustu, tekrar dene.', 'assistant');
             }
         }
 
@@ -279,7 +326,6 @@
             if (e.key === 'Enter') sendMessage();
         });
 
-        // Sayfa yüklenince bilgileri yükle
         loadHistory();
         loadUserInfo();
     </script>
