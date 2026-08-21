@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hesap askıya alındı — Neo</title>
+    <link rel="preload" href="{{ url_for('static', filename='neo-logo.webp') }}" as="image" type="image/webp">
+    <link rel="icon" href="{{ url_for('static', filename='neo-logo.webp') }}" type="image/webp">
+    <style>
+        *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:Inter,"Segoe UI",sans-serif;color:#17213a;background:#eef1fb}
+        main{width:min(94vw,500px);padding:42px 34px;text-align:center;border:1px solid rgba(255,255,255,.9);border-radius:30px;background:rgba(255,255,255,.78);box-shadow:0 24px 80px rgba(72,83,130,.16);backdrop-filter:blur(22px)}
+        .logo{width:64px;height:64px;margin:0 auto 22px;overflow:hidden;border-radius:21px;background:#31445e;box-shadow:0 12px 28px rgba(117,87,245,.22)}.logo img{width:100%;height:100%;object-fit:cover}
+        h1{margin:0;font-size:26px;letter-spacing:-.05em}p{margin:13px 0 24px;color:#7b86a1;line-height:1.6;font-size:14px}
+        a,button{display:inline-block;padding:12px 18px;border:0;border-radius:13px;color:#fff;background:#202b49;text-decoration:none;font-weight:800;font-size:13px;cursor:pointer;font-size:13px}
+        .secondary{background:transparent;color:#596783;border:1px solid #d9deec;margin-left:6px}.form{margin-top:20px;text-align:left}.form label{display:block;margin:0 0 7px;font-size:12px;font-weight:800}.form input,.form textarea{width:100%;padding:12px;border:1px solid #d9deec;border-radius:12px;background:#fff;color:#17213a;font:inherit}.form textarea{min-height:120px;resize:vertical}.error{margin:12px 0;color:#ad4d5e;font-size:12px;font-weight:700}
+        /* Resmi, sade hesap durumu teması */
+        body{background:#f4f6f8}
+        main{border:1px solid #dfe4ea;border-radius:16px;background:#fff;box-shadow:0 10px 30px rgba(31,45,61,.08);backdrop-filter:none}
+        .logo{border-radius:14px;background:#34465b;box-shadow:none}
+        .logo img{width:100%;height:100%;object-fit:cover}
+        a,button{border-radius:9px;background:#34465b}
+        .secondary{background:#f4f6f8;color:#52677d;border-color:#dfe4ea}
+        .form input,.form textarea{border-color:#d5dce4;background:#f8f9fb}
+        .test-toolbar{position:fixed;z-index:80;right:18px;bottom:18px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;max-width:min(92vw,560px);padding:10px 12px;border:1px solid rgba(255,255,255,.7);border-radius:18px;background:rgba(255,255,255,.72);box-shadow:0 14px 35px rgba(31,45,61,.18);backdrop-filter:blur(22px) saturate(130%);font-size:11px}.test-toolbar strong{color:#34465b}.test-toolbar button,.test-toolbar a{padding:8px 9px;border:1px solid #d5dce4;border-radius:9px;color:#52677d;background:rgba(255,255,255,.65);cursor:pointer;text-decoration:none;font:inherit;font-weight:700}@media(max-width:600px){.test-toolbar{right:10px;bottom:10px;left:10px;max-width:none}}@media(prefers-color-scheme:dark){.test-toolbar{border-color:#465361;background:rgba(32,39,49,.82)}.test-toolbar strong{color:#edf1f5}.test-toolbar button,.test-toolbar a{border-color:#4a5866;color:#d6dee7;background:rgba(96,117,140,.2)}}
+    </style>
+</head>
+<body>{% if session.get('admin_test_mode') %}<div class="test-toolbar"><strong>Test hesabı</strong><form method="post" action="/yonetim/kullanici/neo-test-account/askiya-al" onsubmit="return confirm('Test hesabını askıya almak istediğine emin misin?')"><button type="submit">Askıya al</button></form><form method="post" action="/yonetim/kullanici/neo-test-account/kapat" onsubmit="return confirm('Test hesabını kapatmak istediğine emin misin?')"><button type="submit">Tamamen kapat</button></form><form method="post" action="/yonetim/kullanici/neo-test-account/askidan-cikar" onsubmit="return confirm('Test hesabını yeniden açmak istediğine emin misin?')"><button type="submit">Geri aç</button></form><button type="button" onclick="changeTestPassword()">Şifre değiştir</button><a href="/yonetim/testten-cik">Testten çık</a></div><script>async function changeTestPassword(){const p=prompt('Yeni şifre (en az 8 karakter):');if(!p||p.length<8)return;await fetch('/yonetim/kullanici/neo-test-account/sifre-degistir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p})});}</script>{% endif %}<main><div class="logo"><img src="{{ profile_image_url or url_for('static', filename='neo-logo.webp') }}" alt="{{ user_name }} profil fotoğrafı"></div>
+    {% if appeal_step == 'bot' %}
+    <h1>İtiraz kontrolü</h1><p>İtiraz göndermeden önce kısa bir bot kontrolünü tamamla.</p>
+    {% if appeal_error %}<div class="error">{{ appeal_error }}</div>{% endif %}
+    <form class="form" method="post" action="/hesap-askiya-alindi/itiraz"><label>{{ bot_question }}</label><input name="bot_answer" inputmode="numeric" required autofocus><button type="submit">Devam et</button></form>
+    {% elif appeal_step == 'reason' %}
+    <h1>İtirazını gönder</h1><p>Hesabının neden yeniden açılması gerektiğini yaz. Başvurun yönetim paneline iletilecek.</p>
+    {% if appeal_error %}<div class="error">{{ appeal_error }}</div>{% endif %}
+    <form class="form" method="post" action="/hesap-askiya-alindi/itiraz-gonder"><label for="reason">İtiraz nedeni</label><textarea id="reason" name="reason" maxlength="2000" required autofocus placeholder="Örneğin: Hesabımın yanlışlıkla askıya alındığını düşünüyorum çünkü..."></textarea><button type="submit">İtirazı gönder</button></form>
+    {% elif appeal_step == 'sent' %}
+    <h1>İtirazın alındı</h1><p>İtirazını yönetim ekibine ilettik. İncelendiğinde hesabınla ilgili karar verilecek.</p>
+    <a href="/cikis">Güvenli çıkış yap</a>
+    {% else %}
+    <h1>Hesabınızı askıya aldık ({{ user_name }})</h1>
+    <p>Hesabına şu anda erişilemiyor. Hesabının yeniden açılması için itiraz gönderebilirsin.</p>
+    <a href="/hesap-askiya-alindi/itiraz">İtiraz et</a><a class="secondary" href="/cikis">Çıkış</a>
+    {% endif %}
+</main></body>
+</html>

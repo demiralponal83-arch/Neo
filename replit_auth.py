@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import jwt
 import os
+import time
 import uuid
 from functools import wraps
 from urllib.parse import urlencode
@@ -21,6 +22,7 @@ from app import app, db
 from models import OAuth, User
 
 login_manager = LoginManager(app)
+ISSUER_URL = os.environ.get("ISSUER_URL", "https://replit.com/oidc")
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -65,20 +67,18 @@ def make_replit_blueprint():
     except KeyError:
         raise SystemExit("the REPL_ID environment variable must be set")
 
-    issuer_url = os.environ.get('ISSUER_URL', "https://replit.com/oidc")
-
     replit_bp = OAuth2ConsumerBlueprint(
         "replit_auth",
         __name__,
         client_id=repl_id,
         client_secret=None,
-        base_url=issuer_url,
+        base_url=ISSUER_URL,
         authorization_url_params={"prompt": "login consent"},
-        token_url=issuer_url + "/token",
+        token_url=ISSUER_URL + "/token",
         token_url_params={"auth": (), "include_client_id": True},
-        auto_refresh_url=issuer_url + "/token",
+        auto_refresh_url=ISSUER_URL + "/token",
         auto_refresh_kwargs={"client_id": repl_id},
-        authorization_url=issuer_url + "/auth",
+        authorization_url=ISSUER_URL + "/auth",
         use_pkce=True,
         code_challenge_method="S256",
         scope=["openid", "profile", "email", "offline_access"],
@@ -92,12 +92,20 @@ def make_replit_blueprint():
         session.modified = True
         g.browser_session_key = session['_browser_session_key']
         g.flask_dance_replit = replit_bp.session
+        if request.endpoint == "replit_auth.authorized":
+            app.logger.info(
+                "OAuth callback alındı: scheme=%s host=%s state=%s code_verifier=%s",
+                request.scheme,
+                request.host,
+                "var" if "replit_auth_oauth_state" in session else "eksik",
+                "var" if "replit_auth_oauth_code_verifier" in session else "eksik",
+            )
 
     @replit_bp.route("/logout")
     def logout():
-        del replit_bp.token
+        replit_bp.token = None
         logout_user()
-        end_session_endpoint = issuer_url + "/session/end"
+        end_session_endpoint = ISSUER_URL + "/session/end"
         encoded_params = urlencode({
             "client_id": repl_id,
             "post_logout_redirect_uri": request.url_root,
@@ -107,20 +115,38 @@ def make_replit_blueprint():
 
     @replit_bp.route("/error")
     def error():
-        return render_template("403.html"), 403
+        return render_template("auth_error.html"), 403
 
     return replit_bp
 
 def save_user(user_claims):
-    user = User()
-    user.id = user_claims['sub']
-    user.email = user_claims.get('email')
-    user.first_name = user_claims.get('first_name')
-    user.last_name = user_claims.get('last_name')
-    user.profile_image_url = user_claims.get('profile_image_url')
-    merged_user = db.session.merge(user)
+    user_id = user_claims['sub']
+    user = db.session.get(User, user_id)
+    if user is None:
+        user = User(id=user_id, onboarding_completed=False)
+        db.session.add(user)
+
+    # OAuth claims are identity hints, not the source of truth for Neo's
+    # editable profile. In particular, do not replace a completed onboarding
+    # profile with null/partial claims on the next login.
+    oauth_email = user_claims.get('email')
+    oauth_first_name = user_claims.get('first_name') or user_claims.get('given_name')
+    oauth_last_name = user_claims.get('last_name') or user_claims.get('family_name')
+    oauth_image = user_claims.get('profile_image_url') or user_claims.get('picture')
+
+    if oauth_email and not user.email:
+        user.email = oauth_email
+    if oauth_first_name and not user.first_name:
+        user.first_name = oauth_first_name
+    if oauth_last_name and not user.last_name:
+        user.last_name = oauth_last_name
+    if oauth_image and not user.profile_image_url:
+        user.profile_image_url = oauth_image
+    if not user.first_name and user.email:
+        user.first_name = user.email.split("@", 1)[0].replace(".", " ").strip().title()
+
     db.session.commit()
-    return merged_user
+    return user
 
 @oauth_authorized.connect
 def logged_in(blueprint, token):
@@ -134,6 +160,11 @@ def logged_in(blueprint, token):
 
 @oauth_error.connect
 def handle_error(blueprint, error, error_description=None, error_uri=None):
+    app.logger.warning(
+        "Replit Auth sağlayıcı hatası: %s%s",
+        error,
+        f" ({error_description})" if error_description else "",
+    )
     return redirect(url_for('replit_auth.error'))
 
 def require_login(f):
@@ -143,9 +174,15 @@ def require_login(f):
             session["next_url"] = get_next_navigation_url(request)
             return redirect(url_for('replit_auth.login'))
 
-        expires_in = replit.token.get('expires_in', 0)
-        if expires_in < 0:
-            refresh_token_url = issuer_url + "/token"
+        # Local Neo email/password users do not have a Replit OAuth token.
+        # Their Flask-Login session is the authentication source.
+        if str(current_user.get_id()).startswith("email:"):
+            return f(*args, **kwargs)
+
+        token = replit.token or {}
+        expires_at = token.get('expires_at')
+        if expires_at is not None and expires_at <= time.time():
+            refresh_token_url = ISSUER_URL + "/token"
             try:
                 token = replit.refresh_token(token_url=refresh_token_url, client_id=os.environ['REPL_ID'])
             except InvalidGrantError:

@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Neo",
+    "slug": "neo-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "../static/neo-logo.webp",
+    "splash": {
+      "backgroundColor": "#F4F6F8",
+      "image": "../static/neo-logo.webp",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.neoai.assistant"
+    },
+    "android": {
+      "package": "com.neoai.assistant"
+    }
+  }
+}

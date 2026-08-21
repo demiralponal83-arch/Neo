@@ -1,0 +1,20 @@
+{
+  "name": "Neo Yönetim Paneli",
+  "short_name": "Neo Yönetim",
+  "description": "Neo yönetim paneli.",
+  "lang": "tr",
+  "start_url": "/yonetim",
+  "scope": "/yonetim",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f6f8",
+  "theme_color": "#34465b",
+  "icons": [
+    {
+      "src": "/static/neo-logo.webp",
+      "sizes": "768x768",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ]
+}

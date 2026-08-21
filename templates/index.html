@@ -3,368 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nico - Kisisel Asistan</title>
+    <title>Neo — Kişisel Asistan</title>
+    <meta name="theme-color" content="#34465b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Neo">
+    <link rel="manifest" href="{{ url_for('static', filename='neo-manifest.json') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='neo-logo.webp') }}">
+    <link rel="preload" href="{{ url_for('static', filename='neo-logo.webp') }}" as="image" type="image/webp">
+    <link rel="icon" href="{{ url_for('static', filename='neo-logo.webp') }}" type="image/webp">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: white;
-            min-height: 100vh;
-            display: flex;
-            padding: 20px;
-            gap: 20px;
+        :root { --ink:#17213a; --muted:#7b86a1; --line:rgba(130,145,190,.2); --violet:#7557f5; --cyan:#55d8e8; }
+        * { box-sizing:border-box; margin:0; padding:0; }
+         body { min-height:100vh; overflow:auto; font-family:Inter,"Segoe UI",sans-serif; color:var(--ink); background:#eef1fb; }
+        body:before, body:after { content:""; position:fixed; z-index:-1; border-radius:50%; filter:blur(5px); opacity:.65; animation:drift 13s ease-in-out infinite alternate; }
+        body:before { width:420px;height:420px;left:-120px;top:-140px;background:#d5caff; }
+        body:after { width:360px;height:360px;right:-110px;bottom:-130px;background:#bceff4; animation-delay:-5s; }
+        button,input { font:inherit; }
+         .shell { display:grid; grid-template-columns:300px minmax(0,1fr); gap:18px; min-height:100vh; height:auto; padding:18px; }
+        .glass { background:rgba(255,255,255,.72); border:1px solid rgba(255,255,255,.9); box-shadow:0 22px 60px rgba(72,83,130,.13); backdrop-filter:blur(22px); }
+        .sidebar { min-width:0; padding:20px 14px; border-radius:28px; display:flex; flex-direction:column; animation:rise .7s cubic-bezier(.2,.8,.2,1); }
+        .account { display:flex; align-items:center; gap:12px; padding:4px 8px 22px; cursor:pointer; border-radius:18px; transition:.2s; }
+        .account:hover { background:rgba(255,255,255,.65); }
+        .avatar { position:relative; width:48px;height:48px; flex:0 0 48px; display:grid;place-items:center; border-radius:17px; color:#fff; font-weight:800; font-size:20px; background:linear-gradient(135deg,#7e5cf7,#49d7df); box-shadow:0 8px 22px rgba(117,87,245,.3); }
+        .avatar:after { content:""; position:absolute; inset:-5px; border:1px solid rgba(117,87,245,.35); border-radius:20px; animation:orbit 5s linear infinite; }
+        .avatar img { width:100%;height:100%;object-fit:cover;border-radius:17px;position:relative;z-index:1; }
+        .account strong { display:block; font-size:15px; letter-spacing:-.2px; }
+        .account small { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
+        .section-label { padding:0 10px 10px; color:#9ba4ba; font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+        .new-chat { width:100%; border:0; padding:13px 14px; border-radius:15px; color:white; cursor:pointer; font-weight:700; background:linear-gradient(110deg,#7758f6,#4acfdc); box-shadow:0 8px 18px rgba(117,87,245,.2); transition:.25s; }
+        .history-new-chat { margin:0 0 10px; padding:10px 12px; border-radius:10px; font-size:12px; text-align:left; }
+        .new-chat:hover { transform:translateY(-2px); box-shadow:0 12px 26px rgba(117,87,245,.3); }
+        .history-list { flex:1; min-height:0; overflow:auto; margin-top:18px; padding:2px; }
+        .history-item { display:flex; align-items:center; gap:10px; margin-bottom:7px; padding:12px; border:1px solid transparent; border-radius:14px; cursor:pointer; transition:.25s; animation:fadeIn .45s both; user-select:none; -webkit-user-select:none; }
+        .history-item:hover,.history-item.active { background:rgba(255,255,255,.8); border-color:var(--line); transform:translateX(3px); }
+        .history-dot { width:8px;height:8px; flex:0 0 8px; border-radius:50%; background:#b9c1d8; }
+        .history-item.active .history-dot { background:#62d7d5; box-shadow:0 0 0 5px rgba(98,215,213,.14); }
+        .konu { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:700; }
+        .zaman { margin-top:3px; color:#a4abc0; font-size:10px; }
+        .empty { padding:28px 15px; color:#9ca6bc; text-align:center; font-size:12px; line-height:1.5; }
+         .chat { min-width:0; min-height:calc(100vh - 36px); border-radius:30px; display:flex; flex-direction:column; overflow:hidden; animation:rise .8s .08s both cubic-bezier(.2,.8,.2,1); }
+        .chat-header { display:flex; align-items:center; justify-content:space-between; padding:22px 28px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.38); }
+        .menu-toggle { display:none; width:40px; height:40px; border:1px solid var(--line); border-radius:13px; color:var(--ink); background:rgba(255,255,255,.45); cursor:pointer; font-size:22px; line-height:1; }
+        .menu-backdrop { display:none; }
+        .brand { display:flex; align-items:center; gap:13px; }
+        .brand-mark { width:40px;height:40px; display:grid;place-items:center; overflow:hidden; border-radius:14px; background:#31445e; box-shadow:0 8px 18px rgba(29,39,66,.2); }
+        .brand-mark img { width:100%;height:100%;object-fit:cover; }
+        .brand h1 { font-size:19px; letter-spacing:-.04em; }
+        .brand p { margin-top:3px; color:var(--muted); font-size:12px; }
+        .status { display:flex; align-items:center; gap:8px; color:#6d7893; font-size:12px; }
+        .pulse { width:8px;height:8px; border-radius:50%; background:#56d8bd; box-shadow:0 0 0 5px rgba(86,216,189,.14); animation:pulse 2s infinite; }
+        .messages { flex:1; overflow:auto; padding:30px clamp(16px,5vw,70px); background:linear-gradient(180deg,rgba(248,250,255,.28),rgba(235,240,254,.3)); }
+        .welcome { max-width:560px; margin:8vh auto 30px; text-align:center; animation:fadeIn .8s; }
+        .welcome-orb { width:68px;height:68px; display:grid;place-items:center; overflow:hidden; margin:0 auto 18px; border-radius:24px; background:#31445e; box-shadow:0 16px 34px rgba(117,87,245,.25); animation:float 4s ease-in-out infinite; }
+        .welcome-orb img { width:100%;height:100%;object-fit:cover; }
+        .welcome h2 { font-size:clamp(25px,3vw,39px); letter-spacing:-.06em; }
+        .welcome p { margin-top:10px; color:var(--muted); font-size:14px; }
+        .message { display:flex; gap:11px; max-width:760px; margin:0 auto 18px; animation:messageIn .45s both cubic-bezier(.2,.8,.2,1); }
+        .message.user { justify-content:flex-end; }
+        .message-badge { width:30px;height:30px; flex:0 0 30px; display:grid;place-items:center; margin-top:2px; border-radius:11px; color:white; font-size:11px; font-weight:800; background:#202b49; }
+        .message.user .message-badge { order:2; background:linear-gradient(135deg,#7658f6,#52cbdc); }
+        .bubble { max-width:min(72%,620px); padding:13px 16px; border-radius:18px 18px 18px 5px; color:#35415e; font-size:14px; line-height:1.55; background:rgba(255,255,255,.86); border:1px solid rgba(255,255,255,.95); box-shadow:0 8px 22px rgba(82,95,140,.08); }
+        .message.user .bubble { color:white; border:0; border-radius:18px 18px 5px 18px; background:linear-gradient(135deg,#7658f6,#5c74ee); box-shadow:0 10px 22px rgba(102,88,232,.2); }
+        .typing { display:flex; align-items:center; padding:6px 8px; background:transparent; border:0; box-shadow:none; }
+        .typing-logo { position:relative; width:22px; height:22px; display:grid; place-items:center; }
+        .typing-logo::before { content:""; position:absolute; inset:-2px; border-radius:50%; background:conic-gradient(#7658f6,#ff5ca8,#ffb347,#55d8e8,#7658f6); animation:spin 1.15s linear infinite; }
+        .typing-logo img { position:relative; z-index:1; width:22px; height:22px; border-radius:50%; object-fit:contain; filter:drop-shadow(0 3px 7px rgba(117,87,245,.22)); }
+        .message.assistant .message-badge { overflow:hidden; padding:0; background:#31445e; }
+        .message.assistant .message-badge img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+        .message.assistant .bubble { max-width:100%; padding:0; border:0; border-radius:0; color:#35415e; background:transparent; box-shadow:none; animation:assistantReveal .42s cubic-bezier(.2,.8,.2,1) both; transform-origin:left bottom; }
+        .message.assistant .bubble p { margin:0 0 12px; }
+        .message.assistant .bubble p:last-child { margin-bottom:0; }
+        .thinking-exit { animation:thinkingExit .24s ease-in forwards; pointer-events:none; }
+        .typing i { width:6px;height:6px; border-radius:50%; background:#7d8aa8; animation:typing 1.1s infinite; }
+        .typing i:nth-child(2) { animation-delay:.15s; } .typing i:nth-child(3) { animation-delay:.3s; }
+        .composer { padding:18px clamp(16px,5vw,70px) 22px; }
+        .composer form { max-width:760px; margin:auto; display:flex; align-items:center; gap:10px; padding:7px 8px 7px 10px; border:1px solid rgba(137,151,194,.25); border-radius:19px; background:rgba(255,255,255,.82); box-shadow:0 12px 30px rgba(70,84,130,.1); transition:.25s; }
+        .attach { width:36px;height:36px;border:0;border-radius:12px;color:#68738e;background:transparent;cursor:pointer;font-size:20px; }
+        .attach:hover { background:rgba(117,87,245,.1);color:#7658f6; } .attach input { display:none; }
+        .image-preview { display:none; max-width:760px; margin:0 auto 8px; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.55); font-size:11px; }
+        .image-preview.show { display:flex; } .image-preview img { width:34px;height:34px;object-fit:cover;border-radius:8px; } .image-preview button { margin-left:auto;border:0;background:transparent;color:#a25368;cursor:pointer;font-size:18px; }
+        .message-image { display:block; max-width:min(100%,520px); margin-top:10px; border-radius:14px; box-shadow:0 10px 24px rgba(82,95,140,.12); }
+        .delete-backdrop { display:none; position:fixed; inset:0; z-index:60; place-items:center; padding:20px; background:rgba(19,28,40,.25); backdrop-filter:blur(12px) saturate(130%); }
+        .delete-backdrop.open { display:grid; animation:fadeIn .18s ease-out; }
+        .delete-dialog { width:min(92vw,360px); padding:25px 22px 20px; text-align:center; border:1px solid rgba(255,255,255,.72); border-radius:26px; background:rgba(255,255,255,.68); box-shadow:0 22px 55px rgba(31,45,61,.2), inset 0 1px 0 rgba(255,255,255,.8); backdrop-filter:blur(28px) saturate(140%); animation:dialogIn .22s ease-out; }
+        .delete-dialog-icon { width:42px;height:42px;display:grid;place-items:center;margin:0 auto 13px;border-radius:14px;color:#52677d;background:rgba(255,255,255,.6);font-size:20px; }
+        .delete-dialog h3 { margin:0;color:#26384c;font-size:17px;letter-spacing:-.03em; }
+        .delete-dialog p { margin:8px 0 20px;color:#6e7b8d;font-size:12px;line-height:1.5; }
+        .delete-actions { display:grid;grid-template-columns:1fr 1fr;gap:9px; }
+        .delete-actions button { padding:11px;border:1px solid rgba(255,255,255,.65);border-radius:13px;cursor:pointer;font:inherit;font-size:12px;font-weight:800; }
+        .delete-cancel { color:#52677d;background:rgba(255,255,255,.56); }
+        .delete-confirm { color:#fff;background:#52677d;box-shadow:0 5px 12px rgba(52,70,91,.18); }
+        @keyframes dialogIn { from { opacity:0; transform:scale(.94) translateY(8px); } to { opacity:1; transform:none; } }
+        .composer form:focus-within { border-color:rgba(117,87,245,.55); box-shadow:0 0 0 5px rgba(117,87,245,.09),0 14px 32px rgba(70,84,130,.13); }
+        .composer input { flex:1; min-width:0; border:0; outline:0; color:var(--ink); background:transparent; font-size:14px; }
+        .composer input::placeholder { color:#a0a9be; }
+        .send { width:42px;height:42px; border:0; border-radius:14px; color:#fff; cursor:pointer; background:#202b49; transition:.25s; }
+        .send:hover { transform:rotate(-8deg) scale(1.06); background:linear-gradient(135deg,#7658f6,#52cbdc); }
+        .connection-warning { display:none; max-width:760px; margin:0 auto 12px; padding:11px 14px; border:1px solid rgba(224,142,43,.35); border-radius:13px; color:#9a5b14; background:#fff3df; font-size:12px; line-height:1.45; }
+        .connection-warning.show { display:block; animation:fadeIn .25s ease-out; }
+        .modal-backdrop { display:none; position:fixed; inset:0; z-index:20; place-items:center; padding:20px; background:rgba(26,35,62,.28); backdrop-filter:blur(8px); }
+        .modal-backdrop.open { display:grid; }
+        .settings { width:min(94vw,560px); max-height:90vh; overflow:auto; padding:28px; border-radius:28px; background:rgba(255,255,255,.94); box-shadow:0 28px 80px rgba(27,39,78,.24); animation:rise .3s ease-out; }
+        .settings-head { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:20px; }
+        .settings-head h2 { font-size:24px; letter-spacing:-.05em; }
+        .close-settings { width:36px;height:36px;border:0;border-radius:12px;color:#68738e;background:#eef1fb;cursor:pointer;font-size:20px; }
+        .photo-row { display:flex;align-items:center;gap:16px;padding:14px 0 20px;border-bottom:1px solid var(--line); }
+        .settings-avatar { width:68px;height:68px;display:grid;place-items:center;overflow:hidden;border-radius:22px;color:white;font-size:25px;font-weight:800;background:linear-gradient(135deg,#7e5cf7,#49d7df); }
+        .settings-avatar img { width:100%;height:100%;object-fit:cover; }
+        .photo-actions { display:flex;gap:8px;flex-wrap:wrap; }
+        .photo-actions label,.photo-actions button { padding:9px 12px;border:1px solid var(--line);border-radius:11px;color:#52617f;background:#f7f8fd;cursor:pointer;font-size:12px;font-weight:700; }
+        .photo-actions input { display:none; }
+        .settings-grid { display:grid;grid-template-columns:1fr 1fr;gap:0 12px; }
+        .settings label { display:block;margin:15px 0 7px;color:#62708d;font-size:12px;font-weight:800; }
+        .settings input { width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;outline:0;color:var(--ink);background:#f9faff; }
+        .settings input:focus { border-color:var(--violet);box-shadow:0 0 0 4px rgba(117,87,245,.1); }
+        .settings-save { width:100%;margin-top:20px;padding:14px;border:0;border-radius:14px;color:#fff;background:linear-gradient(110deg,#7658f6,#4acfdc);cursor:pointer;font-weight:800; }
+        .settings-message { min-height:20px;margin-top:12px;color:#65728e;font-size:12px; }
+        .password-note { margin-top:14px;padding:12px;border-radius:12px;color:#65728e;background:#f1f4fc;font-size:12px;line-height:1.45; }
+        .logout-link { display:block; margin-top:12px; color:#a25368; text-align:center; font-size:12px; font-weight:700; text-decoration:none; }
+        @keyframes rise { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:none; } }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes messageIn { from { opacity:0; transform:translateY(10px) scale(.98); } to { opacity:1; transform:none; } }
+        @keyframes float { 0%,100% { transform:translateY(0) rotate(-2deg); } 50% { transform:translateY(-8px) rotate(2deg); } }
+        @keyframes drift { from { transform:translate(0,0) scale(1); } to { transform:translate(35px,25px) scale(1.08); } }
+        @keyframes orbit { to { transform:rotate(360deg); } }
+        @keyframes pulse { 50% { box-shadow:0 0 0 9px rgba(86,216,189,.02); } }
+        @keyframes typing { 0%,60%,100% { transform:translateY(0); opacity:.5; } 30% { transform:translateY(-5px); opacity:1; } }
+        /* Resmi, sade Neo teması */
+        body:before, body:after { display:none; }
+        body { background:#f4f6f8; }
+        .glass { background:#fff; border-color:#dfe4ea; box-shadow:0 8px 24px rgba(31,45,61,.06); backdrop-filter:none; }
+        .avatar, .settings-avatar { background:#34465b; box-shadow:none; }
+        .avatar:after { display:none; }
+        .new-chat, .settings-save { background:#34465b; box-shadow:none; }
+        .history-new-chat { margin-bottom:10px; }
+        .new-chat:hover { transform:none; box-shadow:none; background:#26384c; }
+        .history-item:hover,.history-item.active { background:#f0f3f6; border-color:#dfe4ea; transform:none; }
+        .chat-header { background:#fff; }
+        .messages { background:#f8f9fb; }
+        .welcome-orb { background:#34465b; box-shadow:none; animation:none; }
+        .message.user .message-badge { background:#34465b; }
+        .message.user .bubble { background:#34465b; box-shadow:none; }
+        .typing-logo::before { background:#8b98a8; }
+        .typing-logo img { filter:none; }
+        .composer form { background:#fff; box-shadow:0 6px 18px rgba(31,45,61,.07); }
+        .composer form:focus-within { border-color:#8795a5; box-shadow:0 0 0 3px rgba(52,70,91,.1); }
+        .attach:hover { background:#eef1f4; color:#34465b; }
+        .send, .send:hover { background:#34465b; transform:none; }
+        .settings input:focus { border-color:#8795a5; box-shadow:0 0 0 3px rgba(52,70,91,.1); }
+        @media (prefers-color-scheme: dark) {
+            body { background:#151a20; }
+            body:before, body:after { display:none; }
+            .glass, .chat-header { background:#202731; border-color:#36414d; box-shadow:0 8px 24px rgba(0,0,0,.18); }
+            .messages { background:#181e25; }
+            .history-item:hover,.history-item.active { background:#2a333e; border-color:#3b4754; }
+            .new-chat, .settings-save, .message.user .message-badge, .message.user .bubble, .send, .send:hover { background:#60758c; }
+            .composer form { background:#202731; box-shadow:none; }
+            .welcome-orb, .message.assistant .message-badge { background:#34465b; }
+            .settings { background:#202731; }
+            .delete-backdrop { background:rgba(0,0,0,.42); }
+            .delete-dialog { border-color:rgba(255,255,255,.16); background:rgba(36,45,56,.76); box-shadow:0 22px 55px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.12); }
+            .delete-dialog-icon,.delete-cancel { color:#d6dee7; background:rgba(255,255,255,.1); }
+            .delete-dialog h3 { color:#edf1f5; }.delete-dialog p { color:#aeb9c5; }.delete-confirm { background:#71869b; }
         }
-        /* NICO GIRIS ANIMASYONU */
-        .anim-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            background: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            animation: fadeOut 0.5s ease-in-out 3.5s forwards;
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes assistantReveal { from { opacity:0; transform:scale(.72) translateY(5px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        @keyframes thinkingExit { to { opacity:0; transform:scale(.55); } }
+        @media (max-width:800px) {
+             body { overflow:hidden; } .shell { display:block; height:100vh; min-height:100vh; padding:0; }
+            .sidebar { position:fixed; z-index:40; top:0; left:0; bottom:0; width:min(84vw,320px); min-height:100vh; margin:0; border-radius:0 24px 24px 0; transform:translateX(-105%); transition:transform .28s cubic-bezier(.2,.8,.2,1); }
+            .sidebar.open { transform:translateX(0); } .history-list { max-height:none; }
+            .menu-backdrop { display:block; position:fixed; z-index:35; inset:0; background:rgba(10,15,30,.35); opacity:0; pointer-events:none; transition:opacity .25s; }
+            body.menu-open .menu-backdrop { opacity:1; pointer-events:auto; }
+            .chat { min-height:100vh; height:100vh; border-radius:0; } .chat-header { padding:14px 16px; } .menu-toggle { display:block; } .messages { padding:24px 14px; }
+            .bubble { max-width:82%; } .welcome { margin:6vh auto 25px; } .composer { padding:12px 14px 16px; }
         }
-        .anim-circle {
-            width: 100px;
-            height: 100px;
-            background-color: black;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 0px;
-            font-weight: bold;
-            animation: morph 3s forwards;
-        }
-        @keyframes morph {
-            0% { border-radius: 50%; transform: scale(0.5); font-size: 0px; }
-            50% { transform: scale(1.2); }
-            100% { border-radius: 0%; transform: scale(1); font-size: 40px; background: transparent; color: black; }
-        }
-        @keyframes fadeOut {
-            to { opacity: 0; visibility: hidden; }
-        }
-        /* Sol taraf - Sohbet */
-        .chat-container {
-            flex: 1;
-            max-width: 600px;
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 90vh;
-        }
-        .chat-header {
-            background: white;
-            color: black;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .chat-header h1 { font-size: 1.5em; margin-bottom: 5px; }
-        .chat-header p { font-size: 0.9em; opacity: 0.7; }
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            background: #fafafa;
-        }
-        .message {
-            margin-bottom: 15px;
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            line-height: 1.4;
-        }
-        .message.user {
-            background: black;
-            color: white;
-            margin-left: auto;
-            border-bottom-right-radius: 4px;
-        }
-        .message.assistant {
-            background: white;
-            color: #333;
-            border: 1px solid #e0e0e0;
-            border-bottom-left-radius: 4px;
-        }
-        .chat-input {
-            display: flex;
-            padding: 15px;
-            background: white;
-            border-top: 1px solid #eee;
-        }
-        .chat-input input {
-            flex: 1;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 25px;
-            font-size: 1em;
-            outline: none;
-        }
-        .chat-input input:focus { border-color: black; }
-        .chat-input button {
-            margin-left: 10px;
-            padding: 12px 20px;
-            background: black;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1em;
-        }
-        .chat-input button:hover { background: #333; }
-        /* Sag taraf - Sohbet gecmisi */
-        .history-container {
-            width: 350px;
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 90vh;
-        }
-        .history-header {
-            background: white;
-            color: black;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .history-header h2 { font-size: 1.2em; }
-        .new-chat-btn {
-            background: black;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            margin: 10px 20px;
-            font-size: 0.9em;
-        }
-        .new-chat-btn:hover { background: #333; }
-        .history-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-            background: #fafafa;
-        }
-        .history-item {
-            background: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 10px;
-            cursor: pointer;
-        }
-        .history-item:hover {
-            border-color: black;
-        }
-        .history-item .konu {
-            font-weight: bold;
-            color: black;
-            margin-bottom: 5px;
-            font-size: 1em;
-        }
-        .history-item .zaman {
-            color: #666;
-            font-size: 0.8em;
-        }
-        .history-empty {
-            text-align: center;
-            color: #999;
-            padding: 40px 20px;
-        }
-        .user-info {
-            background: #f0f0f0;
-            padding: 10px;
-            border-radius: 10px;
-            margin: 10px 20px;
-            font-size: 0.85em;
-            text-align: center;
-        }
-        @media (max-width: 900px) {
-            body { flex-direction: column; }
-            .history-container { width: 100%; height: 40vh; }
-            .chat-container { max-width: 100%; height: 50vh; }
+        @media (prefers-color-scheme: dark) {
+            :root { --ink:#edf1ff; --muted:#9ba8c3; --line:rgba(170,184,220,.16); }
+            body { background:#080b14; color:var(--ink); }
+            body:before { background:#241d4d; } body:after { background:#123f49; }
+            .glass { background:rgba(18,23,39,.82); border-color:rgba(255,255,255,.08); box-shadow:0 22px 60px rgba(0,0,0,.28); }
+            .account:hover,.history-item:hover,.history-item.active { background:rgba(255,255,255,.07); }
+            .section-label,.empty,.zaman { color:#77839e; }
+            .history-dot { background:#596681; }
+            .chat-header { background:rgba(18,23,39,.52); } .menu-toggle { color:var(--ink); background:rgba(255,255,255,.07); }
+            .status { color:#a0acc5; }
+            .messages { background:linear-gradient(180deg,rgba(12,16,29,.24),rgba(7,10,20,.42)); }
+            .bubble { color:#dce3f5; background:rgba(29,36,58,.9); border-color:rgba(255,255,255,.08); box-shadow:0 8px 22px rgba(0,0,0,.2); }
+            .composer form { border-color:rgba(170,184,220,.22); background:rgba(18,23,39,.9); box-shadow:0 12px 30px rgba(0,0,0,.24); }
+            .composer input { color:var(--ink); } .composer input::placeholder { color:#77839e; }
+            .settings { background:rgba(20,25,42,.97); box-shadow:0 28px 80px rgba(0,0,0,.46); }
+            .close-settings,.photo-actions label,.photo-actions button { color:#c3cce0; background:#283149; }
+            .settings input { color:var(--ink); background:#11172a; border-color:var(--line); }
+            .password-note { color:#a5b0c7; background:#20283d; }
+            .connection-warning { color:#f4c27b; border-color:rgba(224,142,43,.35); background:rgba(112,65,17,.3); }
         }
     </style>
 </head>
 <body>
-    <!-- NICO GIRIS ANIMASYONU -->
-    <div class="anim-overlay" id="animOverlay">
-        <div class="anim-circle">NİCO</div>
+{% if session.get('admin_test_mode') %}
+<div class="test-toolbar" aria-label="Test hesabı yönetimi">
+    <strong>Test hesabı</strong>
+    <form method="post" action="/yonetim/kullanici/neo-test-account/askiya-al" onsubmit="return confirm('Test hesabını askıya almak istediğine emin misin?')"><button type="submit">Askıya al</button></form>
+    <form method="post" action="/yonetim/kullanici/neo-test-account/kapat" onsubmit="return confirm('Test hesabını kapatmak istediğine emin misin?')"><button type="submit">Tamamen kapat</button></form>
+    <form method="post" action="/yonetim/kullanici/neo-test-account/kapatmayi-geri-al" onsubmit="return confirm('Test hesabını yeniden açmak istediğine emin misin?')"><button type="submit">Geri aç</button></form>
+    <button type="button" onclick="changeTestPassword()">Şifre değiştir</button>
+    <a href="/yonetim/testten-cik">Testten çık</a>
+</div>
+<style>
+.test-toolbar{position:fixed;z-index:80;right:18px;bottom:18px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;max-width:min(92vw,560px);padding:10px 12px;border:1px solid rgba(255,255,255,.7);border-radius:18px;background:rgba(255,255,255,.72);box-shadow:0 14px 35px rgba(31,45,61,.18);backdrop-filter:blur(22px) saturate(130%);font-size:11px}.test-toolbar strong{color:#34465b;margin-right:3px}.test-toolbar form{margin:0}.test-toolbar button,.test-toolbar a{padding:8px 9px;border:1px solid #d5dce4;border-radius:9px;color:#52677d;background:rgba(255,255,255,.65);cursor:pointer;text-decoration:none;font:inherit;font-weight:700}.test-toolbar button:hover,.test-toolbar a:hover{background:#eef1f4}@media(prefers-color-scheme:dark){.test-toolbar{border-color:#465361;background:rgba(32,39,49,.82)}.test-toolbar strong{color:#edf1f5}.test-toolbar button,.test-toolbar a{border-color:#4a5866;color:#d6dee7;background:rgba(96,117,140,.2)}}@media(max-width:600px){.test-toolbar{right:10px;bottom:10px;left:10px;max-width:none}}
+</style>
+{% endif %}
+<div class="delete-backdrop" id="deleteBackdrop" onclick="closeDeleteDialog(event)">
+    <div class="delete-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+        <div class="delete-dialog-icon">⌫</div>
+        <h3 id="deleteTitle">Sohbet silinsin mi?</h3>
+        <p>Bu sohbet ve içindeki mesajlar silinecek. Bu işlem geri alınamaz.</p>
+        <div class="delete-actions"><button class="delete-cancel" type="button" onclick="closeDeleteDialog()">Vazgeç</button><button class="delete-confirm" type="button" onclick="confirmDeleteChat()">Sil</button></div>
     </div>
-
-    <div class="chat-container">
-        <div class="chat-header">
-            <h1>Nico</h1>
-            <p>Kisisel Asistanin</p>
+</div>
+<main class="shell">
+    <aside class="sidebar glass">
+        <div class="account" onclick="openSettings()" role="button" tabindex="0" aria-label="Hesap ayarlarını aç">
+            <div class="avatar" id="avatar">N</div>
+            <div><strong id="accountName">Neo</strong></div>
         </div>
-        <div class="chat-messages" id="messages">
+        <div class="section-label" style="margin-top:24px">Önceki sohbetler</div>
+        <button class="new-chat history-new-chat" onclick="yeniSohbet()">＋ Yeni sohbet</button>
+        <div class="history-list" id="historyList"><div class="empty">Henüz bir sohbet yok.<br>İlk mesajını gönder.</div></div>
+    </aside>
+    <section class="chat glass">
+        <header class="chat-header">
+            <div class="brand"><div class="brand-mark"><img src="{{ url_for('static', filename='neo-logo.webp') }}" alt="Neo logosu"></div><div><h1>Neo</h1></div></div>
+            <div style="display:flex;align-items:center;gap:10px"><div class="status"><span class="pulse"></span>Aktif</div><button class="menu-toggle" onclick="toggleMenu()" aria-label="Hesap ve sohbet geçmişini aç" aria-expanded="false">☰</button></div>
+        </header>
+        <div class="messages" id="messages">
+            <div class="welcome" id="welcome"><div class="welcome-orb"><img src="{{ url_for('static', filename='neo-logo.webp') }}" alt="Neo logosu"></div><h2>Bugün ne düşünüyorsun?</h2></div>
         </div>
-        <div class="chat-input">
-            <input type="text" id="userInput" placeholder="Bir seyler yaz...">
-            <button onclick="sendMessage()">Gonder</button>
+        <div class="composer"><div class="connection-warning" id="connectionWarning" role="status">Şu anda yanıt veremiyorum. Lütfen biraz sonra tekrar dene.</div><div class="image-preview" id="imagePreview"><img id="imagePreviewImg" alt=""><span id="imagePreviewName"></span><button type="button" onclick="clearImage()" aria-label="Görseli kaldır">×</button></div><form onsubmit="sendMessage(event)"><label class="attach" aria-label="Görsel ekle">＋<input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp"></label><input id="userInput" autocomplete="off" placeholder="Neo'ya bir şey yaz..."><button class="send" aria-label="Gönder">➤</button></form></div>
+    </section>
+</main>
+<div class="menu-backdrop" onclick="closeMenu()"></div>
+<div class="modal-backdrop" id="settingsBackdrop" onclick="closeSettings(event)">
+    <section class="settings" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" onclick="event.stopPropagation()">
+        <div class="settings-head"><h2 id="settingsTitle">Hesap ayarları</h2><button class="close-settings" onclick="closeSettings()" aria-label="Kapat">×</button></div>
+        <div class="photo-row">
+            <div class="settings-avatar" id="settingsAvatar">N</div>
+            <div><div style="font-weight:800;margin-bottom:9px">Profil fotoğrafın</div><div class="photo-actions"><label for="photoInput">Fotoğraf seç</label><button type="button" onclick="removePhoto()">Fotoğrafı kaldır</button><input id="photoInput" type="file" accept="image/png,image/jpeg,image/webp"></div></div>
         </div>
-    </div>
-
-    <div class="history-container">
-        <div class="history-header">
-            <h2>Sohbet Gecmisi</h2>
-        </div>
-        <div class="user-info" id="userInfo">
-            Kullanici: <span id="userName">Bilinmiyor</span>
-        </div>
-        <button class="new-chat-btn" onclick="yeniSohbet()">+ Yeni Sohbet</button>
-        <div class="history-list" id="historyList">
-            <div class="history-empty">
-                Henuz sohbet gecmisi yok.
+        <form id="settingsForm" onsubmit="saveSettings(event)">
+            <div class="settings-grid">
+                <div><label for="settingsFirstName">Ad</label><input id="settingsFirstName" required minlength="2"></div>
+                <div><label for="settingsLastName">Soyad</label><input id="settingsLastName" required minlength="2"></div>
             </div>
-        </div>
-    </div>
-
-    <script>
-        const messagesDiv = document.getElementById('messages');
-        const userInput = document.getElementById('userInput');
-        const historyList = document.getElementById('historyList');
-        const userNameSpan = document.getElementById('userName');
-
-        function getUserId() {
-            let userId = localStorage.getItem('nico_user_id');
-            if (!userId) {
-                userId = 'user_' + Math.random().toString(36).substr(2, 9);
-                localStorage.setItem('nico_user_id', userId);
-            }
-            return userId;
-        }
-
-        function addMessage(text, role) {
-            const div = document.createElement('div');
-            div.className = 'message ' + role;
-            div.textContent = text;
-            messagesDiv.appendChild(div);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        async function loadHistory() {
-            try {
-                const response = await fetch('/api/sohbetler', {
-                    headers: { 'X-User-ID': getUserId() }
-                });
-                const sohbetler = await response.json();
-                
-                if (sohbetler.length === 0) {
-                    historyList.innerHTML = '<div class="history-empty">Henuz sohbet gecmisi yok.</div>';
-                    return;
-                }
-
-                historyList.innerHTML = '';
-                sohbetler.forEach(s => {
-                    const item = document.createElement('div');
-                    item.className = 'history-item';
-                    item.onclick = () => sohbetYukle(s.id);
-                    item.innerHTML = `
-                        <div class="konu">${s.konu}</div>
-                        <div class="zaman">${s.zaman}</div>
-                    `;
-                    historyList.appendChild(item);
-                });
-            } catch (error) {
-                console.error('Gecmis yuklenirken hata:', error);
-            }
-        }
-
-        async function sohbetYukle(sohbetId) {
-            try {
-                const response = await fetch('/api/sohbet/' + sohbetId, {
-                    headers: { 'X-User-ID': getUserId() }
-                });
-                const mesajlar = await response.json();
-                
-                messagesDiv.innerHTML = '';
-                mesajlar.forEach(m => {
-                    addMessage(m.mesaj, m.gonderen === 'kullanici' ? 'user' : 'assistant');
-                });
-            } catch (error) {
-                console.error('Sohbet yuklenirken hata:', error);
-            }
-        }
-
-        async function yeniSohbet() {
-            try {
-                const response = await fetch('/api/yeni-sohbet', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ konu: 'Yeni Sohbet' })
-                });
-                const data = await response.json();
-                messagesDiv.innerHTML = '';
-                loadHistory();
-            } catch (error) {
-                console.error('Yeni sohbet olusturulurken hata:', error);
-            }
-        }
-
-        async function loadUserInfo() {
-            try {
-                const response = await fetch('/api/kullanici', {
-                    headers: { 'X-User-ID': getUserId() }
-                });
-                const data = await response.json();
-                if (data.isim) {
-                    userNameSpan.textContent = data.isim;
-                }
-            } catch (error) {
-                console.error('Kullanici bilgisi yuklenirken hata:', error);
-            }
-        }
-
-        async function sendMessage() {
-            const text = userInput.value.trim();
-            if (!text) return;
-            
-            addMessage(text, 'user');
-            userInput.value = '';
-            
-            try {
-                const response = await fetch('/api/cevap', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-User-ID': getUserId()
-                    },
-                    body: JSON.stringify({ mesaj: text })
-                });
-                const data = await response.json();
-                addMessage(data.cevap, 'assistant');
-                loadHistory();
-                loadUserInfo();
-            } catch (error) {
-                addMessage('Bir hata olustu, tekrar dene.', 'assistant');
-            }
-        }
-
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-
-        // Animasyonu 4 saniye sonra kaldır
-        setTimeout(() => {
-            const overlay = document.getElementById('animOverlay');
-            if (overlay) overlay.remove();
-        }, 4000);
-
-        loadHistory();
-        loadUserInfo();
-    </script>
+            <label for="settingsEmail">E-posta</label><input id="settingsEmail" type="email" required>
+            <label for="settingsBirthDate">Doğum tarihi</label><input id="settingsBirthDate" type="date" required>
+            <div class="password-note">Şifre, Neo hesabında tutulmaz. E-posta ve şifreyle giriş yaptığın için şifreni burada değiştiremezsin.</div>
+            <div class="settings-message" id="settingsMessage"></div>
+            <button class="settings-save" type="submit">Değişiklikleri kaydet</button>
+            <a class="logout-link" href="/cikis">Güvenli çıkış yap</a>
+        </form>
+    </section>
+</div>
+<script>
+const messagesDiv=document.getElementById('messages'), input=document.getElementById('userInput'), historyList=document.getElementById('historyList'), sidebar=document.querySelector('.sidebar'), menuToggle=document.querySelector('.menu-toggle'), imageInput=document.getElementById('imageInput'), imagePreview=document.getElementById('imagePreview'), imagePreviewImg=document.getElementById('imagePreviewImg'), imagePreviewName=document.getElementById('imagePreviewName');
+let activeChat=null, userInitial='N';
+let selectedImage=null;
+function toggleMenu(){const open=sidebar.classList.toggle('open');document.body.classList.toggle('menu-open',open);menuToggle?.setAttribute('aria-expanded',open?'true':'false');}
+function closeMenu(){sidebar.classList.remove('open');document.body.classList.remove('menu-open');menuToggle?.setAttribute('aria-expanded','false');}
+function addMessage(text,role,image=null){const welcome=document.getElementById('welcome');if(welcome)welcome.remove();const row=document.createElement('div');row.className='message '+role;const badge=role==='user'?userInitial:'<img src="/static/neo-logo.webp" alt="Neo">';const content=role==='assistant'?formatAssistantText(text):escapeHtml(text);row.innerHTML=`<div class="message-badge">${badge}</div><div class="bubble">${content}${image?`<img class="message-image" src="${image}" alt="Düzenlenmiş görsel">`:''}</div>`;messagesDiv.appendChild(row);messagesDiv.scrollTop=messagesDiv.scrollHeight;}
+function escapeHtml(text){const el=document.createElement('div');el.textContent=text;return el.innerHTML;}
+function clearImage(){selectedImage=null;imageInput.value='';imagePreview.classList.remove('show');}
+imageInput.addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(file.size>6*1024*1024){alert('Lütfen 6 MB’tan küçük bir görsel seç.');clearImage();return;}const reader=new FileReader();reader.onload=()=>{selectedImage={data:reader.result,name:file.name};imagePreviewImg.src=reader.result;imagePreviewName.textContent=file.name;imagePreview.classList.add('show');};reader.readAsDataURL(file);});
+function formatAssistantText(text){return escapeHtml(String(text)).split(/\n{2,}/).map(p=>`<p>${p.replace(/\n/g,'<br>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/__(.+?)__/g,'<strong>$1</strong>').replace(/\*([^*]+)\*/g,'<em>$1</em>')}</p>`).join('');}
+function showTyping(){const row=document.createElement('div');row.id='typing';row.className='message';row.innerHTML='<div class="message-badge" style="display:none"></div><div class="typing"><div class="typing-logo"><img src="/static/neo-logo-transparent.png" alt="Yanıt hazırlanıyor"></div></div>';messagesDiv.appendChild(row);messagesDiv.scrollTop=messagesDiv.scrollHeight;}
+function removeTyping(){const row=document.getElementById('typing');if(!row)return Promise.resolve();row.classList.add('thinking-exit');return new Promise(resolve=>setTimeout(()=>{row.remove();resolve();},240));}
+async function loadHistory(){const r=await fetch('/api/sohbetler');if(!r.ok)return;const list=await r.json();if(!list.length){historyList.innerHTML='<div class="empty">Henüz bir sohbet yok.<br>İlk mesajını gönder.</div>';return;}historyList.innerHTML='';list.forEach((s,i)=>{const item=document.createElement('div');item.className='history-item '+(i===0?'active':'');item.onclick=()=>{if(!item.dataset.longPressed)sohbetYukle(s.id,item);item.dataset.longPressed='';};item.oncontextmenu=e=>{e.preventDefault();deleteChat(s.id,item);};let pressTimer;item.addEventListener('pointerdown',()=>{item.dataset.longPressed='';pressTimer=setTimeout(()=>{item.dataset.longPressed='true';deleteChat(s.id,item);},550);});item.addEventListener('pointerup',()=>clearTimeout(pressTimer));item.addEventListener('pointerleave',()=>clearTimeout(pressTimer));item.addEventListener('pointercancel',()=>clearTimeout(pressTimer));item.innerHTML=`<span class="history-dot"></span><div><div class="konu">${escapeHtml(s.konu||'Yeni sohbet')}</div><div class="zaman">${s.zaman}</div></div>`;historyList.appendChild(item);});}
+let pendingDeleteId=null;
+function deleteChat(id){pendingDeleteId=id;document.getElementById('deleteBackdrop').classList.add('open');document.body.style.overflow='hidden';}
+function closeDeleteDialog(e){if(e&&e.target!==e.currentTarget)return;pendingDeleteId=null;document.getElementById('deleteBackdrop').classList.remove('open');document.body.style.overflow='';}
+async function confirmDeleteChat(){const id=pendingDeleteId;if(!id)return;const button=document.querySelector('.delete-confirm');button.disabled=true;const r=await fetch('/api/sohbet/'+id,{method:'DELETE'});button.disabled=false;if(!r.ok){closeDeleteDialog();return;}closeDeleteDialog();if(activeChat===id){activeChat=null;messagesDiv.innerHTML='<div class="welcome" id="welcome"><div class="welcome-orb"><img src="/static/neo-logo.webp" alt="Neo logosu"></div><h2>Yeni bir başlangıç</h2></div>';}loadHistory();}
+function testAccountAction(action){if(!confirm('Test hesabını '+action+' istediğine emin misin?'))return;const endpoint=action==='askıya almak'?'askiya-al':action==='kapatmak'?'kapat':'kapatmayi-geri-al';const form=document.createElement('form');form.method='POST';form.action='/yonetim/kullanici/neo-test-account/'+endpoint;form.style.display='none';document.body.appendChild(form);form.submit();}
+async function changeTestPassword(){const password=prompt('Test hesabı için yeni şifreyi yaz (en az 8 karakter):');if(!password)return;if(password.length<8){alert('Şifre en az 8 karakter olmalı.');return;}const r=await fetch('/yonetim/kullanici/neo-test-account/sifre-degistir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});alert(r.ok?'Test hesabının şifresi değiştirildi.':'Şifre değiştirilemedi.');}
+async function sohbetYukle(id,item){activeChat=id;document.querySelectorAll('.history-item').forEach(x=>x.classList.remove('active'));item?.classList.add('active');const r=await fetch('/api/sohbet/'+id);if(!r.ok)return;const list=await r.json();messagesDiv.innerHTML='';list.forEach(m=>addMessage(m.mesaj,m.gonderen==='kullanici'?'user':'assistant'));if(window.matchMedia('(max-width: 800px)').matches)closeMenu();}
+async function yeniSohbet(){const r=await fetch('/api/yeni-sohbet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({konu:'Yeni sohbet'})});if(r.ok){const d=await r.json();activeChat=d.sohbet_id;messagesDiv.innerHTML='<div class="welcome" id="welcome"><div class="welcome-orb"><img src="/static/neo-logo.webp" alt="Neo logosu"></div><h2>Yeni bir başlangıç</h2></div>';loadHistory();}}
+let profilePhoto=null, currentUser=null;
+document.querySelector('.account').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openSettings();}});
+async function loadUser(){const r=await fetch('/api/kullanici');if(!r.ok)return;const d=await r.json();currentUser=d;const raw=(d.isim||d.email||'Kullanıcı').trim();const name=d.isim?.trim()||raw.split('@')[0];const fullName=[d.isim,d.soyisim].filter(Boolean).join(' ')||name;userInitial=raw.charAt(0).toLocaleUpperCase('tr-TR');const avatar=document.getElementById('avatar');avatar.textContent=userInitial;if(d.profile_image_url){avatar.innerHTML=`<img src="${d.profile_image_url}" alt="">`;}document.getElementById('accountName').textContent=fullName;const sa=document.getElementById('settingsAvatar');sa.textContent=userInitial;if(d.profile_image_url)sa.innerHTML=`<img src="${d.profile_image_url}" alt="">`;}
+function openSettings(){if(!currentUser)return;document.getElementById('settingsFirstName').value=currentUser.isim||'';document.getElementById('settingsLastName').value=currentUser.soyisim||'';document.getElementById('settingsEmail').value=currentUser.email||'';document.getElementById('settingsBirthDate').value=currentUser.birth_date||'';document.getElementById('settingsMessage').textContent='';document.getElementById('settingsBackdrop').classList.add('open');}
+function closeSettings(e){if(e&&e.target!==e.currentTarget)return;document.getElementById('settingsBackdrop').classList.remove('open');}
+function removePhoto(){profilePhoto='';const a=document.getElementById('settingsAvatar');a.textContent=userInitial;}
+document.getElementById('photoInput').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;if(file.size>4*1024*1024){document.getElementById('settingsMessage').textContent='Fotoğraf 4 MB’tan küçük olmalı.';return;}const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{const canvas=document.createElement('canvas');const size=256;canvas.width=size;canvas.height=size;const scale=Math.max(size/img.width,size/img.height);const w=img.width*scale,h=img.height*scale;canvas.getContext('2d').drawImage(img,(size-w)/2,(size-h)/2,w,h);profilePhoto=canvas.toDataURL('image/webp',.82);document.getElementById('settingsAvatar').innerHTML=`<img src="${profilePhoto}" alt="">`;};img.src=reader.result;};reader.readAsDataURL(file);});
+ async function saveSettings(e){e.preventDefault();const message=document.getElementById('settingsMessage');message.textContent='Kaydediliyor…';const body={first_name:document.getElementById('settingsFirstName').value,last_name:document.getElementById('settingsLastName').value,email:document.getElementById('settingsEmail').value,birth_date:document.getElementById('settingsBirthDate').value};if(profilePhoto!==null)body.profile_image_url=profilePhoto;const r=await fetch('/api/profil',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok){message.textContent=d.error||'Değişiklikler kaydedilemedi.';return;}message.textContent='Değişikliklerin kaydedildi';profilePhoto=null;await loadUser();setTimeout(closeSettings,500);}
+async function sendMessage(e){e?.preventDefault();const text=input.value.trim();if(!text&&!selectedImage)return;const sentImage=selectedImage?.data;addMessage(text||'Görseli düzenle', 'user', sentImage);input.value='';clearImage();showTyping();const warning=document.getElementById('connectionWarning');warning.classList.remove('show');try{const r=await fetch('/api/cevap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mesaj:text||'Görseli düzenle',image_data:sentImage||null})});const d=await r.json();await removeTyping();if(!r.ok||d.temporary_error){warning.classList.add('show');return;}addMessage(d.cevap, 'assistant', d.image_data||null);loadHistory();loadUser();}catch(err){await removeTyping();warning.classList.add('show');}}
+loadHistory();loadUser();
+</script>
 </body>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/neo-sw.js").catch(() => {}));
+}
+</script>
 </html>

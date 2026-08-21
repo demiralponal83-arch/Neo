@@ -1,0 +1,31 @@
+- [OAuth giriş dayanıklılığı](oauth-login.md) — Replit OAuth callback ve sağlayıcı hataları kullanıcıya kontrollü ekranla gösterilmeli.
+- [Nico sohbet deneyimi](nico-chat-experience.md) — sohbet arayüzü hesap avatarı, geçmiş ve animasyonlu aktif konuşmayı birlikte sunmalı.
+- [Profil onboarding](profile-onboarding.md) — sohbetten önce ad, soyad ve doğum tarihi alınır; 13 yaş altı kullanıcılar kabul edilmez.
+- [Hesap ayarları](account-settings.md) — profil alanları ve fotoğraf uygulama içinden güncellenir; OAuth şifresi sağlayıcıda yönetilir.
+- [OAuth profil koruması](oauth-login.md) — yeniden girişte OAuth claim’leri Nico’da düzenlenmiş profil alanlarını ezmemeli.
+- [Sohbet başlıkları](chat-titles.md) — başlıklar ilk kullanıcı mesajından konuya göre otomatik ve kısa üretilir.
+- [Nico marka logosu](nico-brand-logo.md) — yüklenen görsel Nico’nun ortak marka logosu; kullanıcı avatarından ayrı tutulur.
+- [Yerel e-posta girişi](local-email-auth.md) — Replit üyeliği gerektirmeyen e-posta/şifre girişi; şifreler hash’li tutulur.
+- [Neo yanıt tamamlama](neo-response-completion.md) — Gemini yanıtları token sınırında veya yarım cümlede kesilirse devam isteğiyle tamamlanır.
+- [Neo düşünme animasyonu](neo-thinking-animation.md) — cevap hazırlanırken yuvarlak Neo logosu renkli dönen halkayla gösterilir.
+- [Mobil sohbet görünümü](mobile-chat-layout.md) — dikey ekranlarda sohbet tam ekran kalır; hesap ve geçmiş hamburger menüden açılır.
+- [Neo görsel düzenleme](neo-image-editing.md) — sohbetten görsel yüklenir ve doğal dille düzenleme isteği gönderilir.
+- [Kullanıcı hesap askıya alma](user-suspension.md) — yönetici panelinden hesaplar askıya alınır veya yeniden etkinleştirilir.
+- [Askıya alma itirazları](account-appeals.md) — askıya alınan kullanıcı bot kontrolünden sonra gerekçe gönderir; itirazlar yönetimde görünür.
+- [Yönetici şifre sıfırlama](admin-password-reset.md) — yönetici paneli kullanıcıların yerel giriş şifrelerini güvenli biçimde değiştirebilir.
+- [Hesap durumları](account-states.md) — askıya alma, tamamen kapatma ve yeniden açılma kullanıcıya farklı ekranlarla gösterilir.
+- [Neo resmi tema](neo-official-theme.md) — mor ışıklar ve cam efektleri yerine sade lacivert-gri kurumsal görünüm kullanılmalı.
+- [Neo kimliği](neo-identity.md) — geliştirici sorularında Neo ekibi belirtilmeli, teknoloji sağlayıcısı geliştirici gibi anlatılmamalı.
+- [Sohbet silme](chat-deletion.md) — geçmişteki sohbetler uzun basma veya masaüstü sağ tıkla onay alınarak silinir.
+- [Sohbet silme onayı](chat-delete-confirmation.md) — silme işlemi tarayıcı confirm yerine Neo uyumlu Liquid Glass penceresiyle onaylanır.
+- [Yönetici test hesabı](admin-test-account.md) — yönetici panelinden izole test hesabıyla Neo kullanılır ve sağ alttaki araçlarla hesap durumları denenir.
+- [Test hesabı durum yenilemesi](admin-test-account.md) — test hesabı durum işlemlerinden sonra sayfa önbelleksiz olarak otomatik yenilenir.
+- [Neo iOS uygulaması](neo-mobile-app.md) — Expo istemcisi mevcut Flask backend’inin mobil token API’siyle giriş ve sohbet özelliklerini kullanır.
+- [Neo yönetim PWA’sı](neo-mobile-app.md) — `/yonetim` ana ekrana Neo logosu ve ayrı Neo Yönetim adıyla eklenebilir.
+- [Neo bakım ekranı](neo-maintenance-mode.md) — geliştirme sırasında temaya uygun bakım ekranı env bayrağıyla açılıp kapanır.
+- [Neo yönetim paneli](neo-admin-panel.md) — bakım, ziyaretçi, kullanıcı ve sohbet istatistikleri tek şifreli panelde yönetilir.
+- [Neo tema uyumu](neo-theme-sync.md) — tüm ekranlar cihazın açık/koyu tema tercihini otomatik takip eder.
+- [Neo hızlı yanıtlar](neo-fast-responses.md) — kısa ve yaygın mesajlar dış API beklemeden yerel motordan yanıtlanır.
+- [Neo bağlam tabanlı cevap](neo-contextual-replies.md) — mesajlar sabit niyet/tarif kategorilerine eşleştirilmeden doğrudan bağlamla yanıtlanır.
+- [Neo bağlantı uyarısı](neo-connection-warning.md) — yapay zekâ servisi geçici olarak kullanılamazsa sohbet balonu yerine isimsiz turuncu uyarı gösterilir.
+- [Neo yanıt tamamlama](neo-response-completion.md) — Gemini yanıtları token sınırında veya yarım cümlede kesilirse devam isteğiyle tamamlanır.

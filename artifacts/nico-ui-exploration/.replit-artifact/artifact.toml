@@ -1,0 +1,18 @@
+kind = "design"
+previewPath = "/__mockup/"
+title = "Nico UI Exploration"
+version = "1.0.0"
+id = "artifacts/nico-ui-exploration"
+router = "path"
+
+[[services]]
+name = "Component Preview Server"
+paths = [ "/__mockup/" ]
+localPort = 24208
+
+[services.development]
+run = "npm run dev"
+
+[services.env]
+PORT = "24208"
+BASE_PATH = "/__mockup/"

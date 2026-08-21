@@ -1,8 +1,9 @@
 entrypoint = "main.py"
-modules = ["python-3.11"]
+modules = ["python-3.11", "nodejs-24", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
+packages = ["u-root-cmds"]
 
 [unitTest]
 language = "python3"
@@ -28,23 +29,55 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Flask App"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Neo mobile Expo Go"
 
 [[workflows.workflow]]
-name = "Flask App"
+name = "Start application"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 main.py"
-waitForPort = 8080
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Neo mobile Expo Go"
+author = "agent"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd mobile && EXPO_PUBLIC_API_BASE_URL=https://707d81d4-4046-41bf-8daa-3bb27ea3d5e9-00-18g2hbqgqcr3g.pike.replit.dev npx expo start --tunnel"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [[ports]]
 localPort = 8080
 
 [[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
 localPort = 8501
 externalPort = 3000
+
+[[ports]]
+localPort = 24208
+externalPort = 3001
+
+[userenv]
+
+[userenv.shared]
+MAINTENANCE_MODE = "true"

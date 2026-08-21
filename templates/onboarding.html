@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo — Profilini tamamla</title>
+    <link rel="preload" href="{{ url_for('static', filename='neo-logo.webp') }}" as="image" type="image/webp">
+    <link rel="icon" href="{{ url_for('static', filename='neo-logo.webp') }}" type="image/webp">
+    <style>
+        :root { --ink:#17213a; --muted:#77839e; --violet:#7658f6; }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { min-height:100vh; display:grid; place-items:center; padding:20px; overflow:hidden;
+            font-family:Inter,"Segoe UI",sans-serif; color:var(--ink); background:#eef1fb; }
+        body:before,body:after { content:""; position:fixed; z-index:-1; border-radius:50%;
+            filter:blur(4px); opacity:.7; animation:drift 12s ease-in-out infinite alternate; }
+        body:before { width:440px;height:440px;left:-140px;top:-150px;background:#d9ceff; }
+        body:after { width:380px;height:380px;right:-130px;bottom:-140px;background:#bceff4;animation-delay:-5s; }
+        .card { width:min(94vw,480px); padding:40px; border:1px solid rgba(255,255,255,.9);
+            border-radius:32px; background:rgba(255,255,255,.76); backdrop-filter:blur(24px);
+            box-shadow:0 24px 80px rgba(72,83,130,.16); animation:rise .7s ease-out; }
+        .mark { width:60px;height:60px;display:grid;place-items:center;overflow:hidden;margin-bottom:22px;border-radius:20px;
+            background:#31445e;
+            box-shadow:0 14px 28px rgba(117,87,245,.25); }
+        .mark img { width:100%;height:100%;object-fit:cover; }
+        h1 { font-size:28px; letter-spacing:-.05em; } .intro { margin:10px 0 26px;color:var(--muted);line-height:1.5;font-size:14px; }
+        label { display:block;margin:15px 0 7px;font-size:12px;font-weight:800;color:#62708d; }
+        .row { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
+        input { width:100%;padding:14px 15px;border:1px solid rgba(130,145,190,.24);border-radius:14px;
+            outline:0;background:rgba(255,255,255,.72);color:var(--ink);font:inherit; }
+        input:focus { border-color:var(--violet);box-shadow:0 0 0 4px rgba(118,88,246,.1); }
+        button { width:100%;margin-top:24px;padding:15px;border:0;border-radius:16px;color:#fff;
+            cursor:pointer;font-weight:800;background:linear-gradient(110deg,#7658f6,#4acfdc);
+            box-shadow:0 10px 22px rgba(117,87,245,.22);font:inherit; }
+        .error { margin-top:15px;padding:12px;border-radius:12px;color:#a83f58;background:#fff0f3;font-size:13px; }
+        .privacy { margin-top:15px;color:#9aa4b9;text-align:center;font-size:11px;line-height:1.45; }
+        @keyframes rise { from { opacity:0;transform:translateY(18px); } to { opacity:1;transform:none; } }
+        @keyframes drift { from { transform:translate(0,0) scale(1); } to { transform:translate(30px,24px) scale(1.08); } }
+        @media(max-width:520px) { .card { padding:30px 22px; } .row { grid-template-columns:1fr;gap:0; } }
+        @media (prefers-color-scheme: dark) {
+            body { background:#080b14; color:var(--ink); }
+            body:before { background:#241d4d; } body:after { background:#123f49; }
+            .card { border-color:rgba(255,255,255,.09); background:rgba(20,25,42,.84); box-shadow:0 24px 80px rgba(0,0,0,.38); }
+            label { color:#aeb9d4; }
+            input { color:#edf1ff; border-color:rgba(170,184,220,.2); background:rgba(10,14,27,.72); }
+        }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <div class="mark"><img src="{{ url_for('static', filename='neo-logo.webp') }}" alt="Neo logosu"></div>
+        <h1>Seni biraz daha tanıyalım</h1>
+        <form method="post">
+            <div class="row">
+                <div><label for="first_name">Adın</label><input id="first_name" name="first_name" required minlength="2" autocomplete="given-name" value="{{ user.first_name or '' }}"></div>
+                <div><label for="last_name">Soyadın</label><input id="last_name" name="last_name" required minlength="2" autocomplete="family-name" value="{{ user.last_name if user.last_name else '' }}"></div>
+            </div>
+            <label for="birth_date">Doğum tarihin</label>
+            <input id="birth_date" name="birth_date" type="date" required max="{{ today or '' }}" autocomplete="bday">
+            {% if hata %}<div class="error">{{ hata }}</div>{% endif %}
+            <button type="submit">Neo’ya başla</button>
+        </form>
+    </main>
+</body>
+</html>

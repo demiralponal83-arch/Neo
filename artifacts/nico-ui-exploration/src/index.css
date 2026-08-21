@@ -1,0 +1,90 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    color: hsl(var(--foreground));
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    /* Soft calm ambient background */
+    background: 
+      radial-gradient(circle at 15% 50%, rgba(220, 235, 255, 0.8), transparent 40%),
+      radial-gradient(circle at 85% 30%, rgba(240, 230, 255, 0.7), transparent 40%),
+      radial-gradient(circle at 50% 80%, rgba(225, 245, 235, 0.6), transparent 40%);
+    background-color: #f8fafc;
+    background-attachment: fixed;
+  }
+}
+
+/* Glass effect utility classes */
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/40 backdrop-blur-xl border border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)];
+  }
+  .glass-button {
+    @apply bg-white/50 hover:bg-white/70 backdrop-blur-md border border-white/60 shadow-sm transition-all duration-200;
+  }
+  .glass-input {
+    @apply bg-white/60 focus:bg-white/80 backdrop-blur-md border border-white/60 shadow-inner transition-all duration-200 outline-none focus:ring-2 focus:ring-blue-400/30;
+  }
+  .glass-message-user {
+    @apply bg-white/70 backdrop-blur-md border border-white/80 shadow-sm;
+  }
+  .glass-message-ai {
+    @apply bg-blue-50/60 backdrop-blur-md border border-blue-100/50 shadow-sm;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300/50 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400/60;
+}
